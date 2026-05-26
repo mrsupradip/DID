@@ -1,3 +1,5 @@
+import 'dart:io' show Platform;
+
 import 'package:animated_text_kit/animated_text_kit.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -32,14 +34,20 @@ class _SplashScreenState extends State<SplashScreen>
 
     controller.forward();
 
-    Future.delayed(const Duration(seconds: 5), () {
-      if (mounted) {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (_) => const LoginScreen()),
-        );
-      }
-    });
+    // Only skip automatic navigation when running Flutter tests. The test
+    // runner sets the environment variable `FLUTTER_TEST=true`.
+    final inTest = Platform.environment['FLUTTER_TEST'] == 'true';
+
+    if (!inTest) {
+      Future.delayed(const Duration(seconds: 5), () {
+        if (mounted) {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (_) => const LoginScreen()),
+          );
+        }
+      });
+    }
   }
 
   @override

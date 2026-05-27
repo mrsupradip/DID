@@ -178,22 +178,27 @@ class SettingsScreen extends StatelessWidget {
     return Container(
       margin: const EdgeInsets.only(bottom: 15),
 
+      // Keep the visual decoration here but put the ListTile inside a Material
+      // so ink splashes and ListTile background paint correctly.
       decoration: BoxDecoration(
         color: const Color(0xff1B2235),
 
         borderRadius: BorderRadius.circular(20),
       ),
 
-      child: ListTile(
-        leading: Icon(icon, color: Colors.white),
+      child: Material(
+        color: Colors.transparent,
+        child: ListTile(
+          leading: Icon(icon, color: Colors.white),
 
-        title: Text(title, style: const TextStyle(color: Colors.white)),
-        trailing: const Icon(
-          Icons.arrow_forward_ios,
-          color: Colors.grey,
-          size: 15,
+          title: Text(title, style: const TextStyle(color: Colors.white)),
+          trailing: const Icon(
+            Icons.arrow_forward_ios,
+            color: Colors.grey,
+            size: 15,
+          ),
+          onTap: onTap,
         ),
-        onTap: onTap,
       ),
     );
   }

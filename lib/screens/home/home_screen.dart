@@ -31,6 +31,19 @@ class _HomeScreenState extends State<HomeScreen> {
 
       body: pages[selectedIndex],
 
+      floatingActionButton: FloatingActionButton(
+        backgroundColor: Colors.greenAccent,
+
+        child: const Icon(Icons.add, color: Colors.black),
+
+        onPressed: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const CreatePostScreen()),
+          );
+        },
+      ),
+
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: selectedIndex,
 

@@ -1,156 +1,240 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'signup_screen.dart';
-import '../home/home_screen.dart';
 
-class LoginScreen extends StatelessWidget {
+import '../../auth/auth_service.dart';
+import '../home/home_screen.dart';
+import 'signup_screen.dart';
+import '../../services/session_service.dart';
+
+class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
 
   @override
+  State<LoginScreen> createState() => _LoginScreenState();
+}
+
+class _LoginScreenState extends State<LoginScreen> {
+  final AuthService authService = AuthService();
+
+  final TextEditingController emailController = TextEditingController();
+
+  final TextEditingController passwordController = TextEditingController();
+
+  bool loading = false;
+
+  @override
+  void dispose() {
+    emailController.dispose();
+    passwordController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
+    Color accent = const Color(0xff63FF9B);
+
     return Scaffold(
-      backgroundColor: const Color(0xff0b0d12),
+      backgroundColor: const Color(0xff0B0B1D),
 
       body: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 35),
+          padding: const EdgeInsets.symmetric(horizontal: 30),
 
-          child: Column(
-            children: [
-              const SizedBox(height: 70),
+          child: SingleChildScrollView(
+            child: Column(
+              children: [
+                const SizedBox(height: 70),
 
-              // D!D LOGO
-              Text(
-                "D!D",
-                style: GoogleFonts.orbitron(
-                  fontSize: 80,
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 5,
-                ),
-              ),
+                Text(
+                  "WELCOME BACK",
 
-              const SizedBox(height: 70),
+                  style: GoogleFonts.poppins(
+                    color: accent,
 
-              // USERNAME
-              TextField(
-                style: const TextStyle(color: Colors.white),
+                    fontSize: 30,
 
-                decoration: InputDecoration(
-                  prefixIcon: const Icon(
-                    Icons.person_outline,
-                    color: Colors.white70,
-                  ),
+                    fontWeight: FontWeight.bold,
 
-                  hintText: "Enter Username",
-
-                  hintStyle: TextStyle(color: Colors.grey.shade500),
-
-                  enabledBorder: const UnderlineInputBorder(
-                    borderSide: BorderSide(color: Colors.white54),
-                  ),
-
-                  focusedBorder: const UnderlineInputBorder(
-                    borderSide: BorderSide(color: Colors.white),
+                    letterSpacing: 2,
                   ),
                 ),
-              ),
 
-              const SizedBox(height: 35),
+                const SizedBox(height: 70),
 
-              // PASSWORD
-              TextField(
-                obscureText: true,
+                buildField(
+                  controller: emailController,
 
-                style: const TextStyle(color: Colors.white),
+                  hint: "Email",
 
-                decoration: InputDecoration(
-                  prefixIcon: const Icon(
-                    Icons.lock_outline,
-                    color: Colors.white70,
-                  ),
-
-                  hintText: "Enter Password",
-
-                  hintStyle: TextStyle(color: Colors.grey.shade500),
-
-                  enabledBorder: const UnderlineInputBorder(
-                    borderSide: BorderSide(color: Colors.white54),
-                  ),
-
-                  focusedBorder: const UnderlineInputBorder(
-                    borderSide: BorderSide(color: Colors.white),
-                  ),
+                  icon: Icons.email,
                 ),
-              ),
 
-              const SizedBox(height: 70),
+                const SizedBox(height: 25),
 
-              // LOGIN
-              SizedBox(
-                width: 220,
-                height: 50,
+                buildField(
+                  controller: passwordController,
 
-                child: OutlinedButton(
-                  onPressed: () {
-                    Navigator.pushReplacement(
-                      context,
-                      MaterialPageRoute(builder: (_) => const HomeScreen()),
-                    );
-                  },
+                  hint: "Password",
 
-                  style: OutlinedButton.styleFrom(
-                    side: const BorderSide(color: Colors.white70),
+                  icon: Icons.lock,
 
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(40),
+                  hide: true,
+                ),
+
+                const SizedBox(height: 50),
+
+                SizedBox(
+                  width: 250,
+
+                  height: 55,
+
+                  child: ElevatedButton(
+                    onPressed: () async {
+                      FocusScope.of(context).unfocus();
+
+                      final email = emailController.text.trim();
+                      final password = passwordController.text.trim();
+
+                      if (email.isEmpty || password.isEmpty) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Please fill all fields'),
+                          ),
+                        );
+                        return;
+                      }
+
+                      setState(() {
+                        loading = true;
+                      });
+
+                      final user = await authService.login(
+                        email: email,
+
+                        password: password,
+                      );
+
+                      setState(() {
+                        loading = false;
+                      });
+
+                      if (user != null) {
+                        await SessionService.updateLastActive();
+                        Navigator.pushReplacement(
+                          context,
+
+                          MaterialPageRoute(builder: (_) => const HomeScreen()),
+                        );
+                      } else {
+                        final err =
+                            authService.lastError ??
+                            'Login failed. Check credentials or network.';
+                        ScaffoldMessenger.of(
+                          context,
+                        ).showSnackBar(SnackBar(content: Text(err)));
+                      }
+                    },
+
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: accent,
+
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(30),
+                      ),
                     ),
-                  ),
 
-                  child: const Text(
-                    "Login",
-                    style: TextStyle(color: Colors.white),
+                    child: loading
+                        ? const CircularProgressIndicator(color: Colors.black)
+                        : const Text(
+                            "LOGIN",
+
+                            style: TextStyle(
+                              color: Colors.black,
+
+                              fontSize: 18,
+
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
                   ),
                 ),
-              ),
 
-              const SizedBox(height: 25),
+                const SizedBox(height: 40),
 
-              // CREATE ACCOUNT
-              SizedBox(
-                width: 220,
-                height: 50,
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
 
-                child: OutlinedButton(
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => const SignupScreen()),
-                    );
-                  },
+                  children: [
+                    const Text(
+                      "Don't have an account?",
 
-                  style: OutlinedButton.styleFrom(
-                    side: const BorderSide(color: Colors.white70),
-
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(40),
+                      style: TextStyle(color: Colors.grey),
                     ),
-                  ),
 
-                  child: const Text(
-                    "Create Account",
-                    style: TextStyle(color: Colors.white),
-                  ),
+                    TextButton(
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+
+                          MaterialPageRoute(
+                            builder: (_) => const SignupScreen(),
+                          ),
+                        );
+                      },
+
+                      child: Text(
+                        "Sign Up",
+
+                        style: GoogleFonts.poppins(
+                          color: accent,
+
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
-              ),
-
-              const Spacer(),
-
-              Icon(Icons.fingerprint, size: 65, color: Colors.grey.shade300),
-
-              const SizedBox(height: 30),
-            ],
+              ],
+            ),
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget buildField({
+    required TextEditingController controller,
+
+    required String hint,
+
+    required IconData icon,
+
+    bool hide = false,
+  }) {
+    return Container(
+      decoration: BoxDecoration(
+        color: const Color(0xff232334),
+
+        borderRadius: BorderRadius.circular(35),
+      ),
+
+      child: TextField(
+        controller: controller,
+
+        obscureText: hide,
+
+        style: const TextStyle(color: Colors.white),
+
+        decoration: InputDecoration(
+          hintText: hint,
+
+          hintStyle: const TextStyle(color: Colors.grey),
+
+          suffixIcon: Icon(icon, color: Colors.grey),
+
+          border: InputBorder.none,
+
+          contentPadding: const EdgeInsets.all(25),
         ),
       ),
     );

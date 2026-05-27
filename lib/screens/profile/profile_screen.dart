@@ -1,13 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../constants/app_colors.dart';
+import '../../data/app_data.dart';
+import '../../widgets/custom_chip.dart';
+import '../settings/settings_screen.dart';
+
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
+    final user = AppData.user;
+
     return Scaffold(
-      backgroundColor: const Color(0xffF3F3F3),
+      backgroundColor: AppColors.background,
 
       body: SingleChildScrollView(
         child: Column(
@@ -17,44 +24,75 @@ class ProfileScreen extends StatelessWidget {
 
               children: [
                 Container(
-                  height: 230,
+                  height: 220,
 
                   decoration: const BoxDecoration(
-                    image: DecorationImage(
-                      image: NetworkImage("https://picsum.photos/700/500"),
+                    gradient: LinearGradient(
+                      colors: [AppColors.accent, Color(0xff0F172A)],
 
-                      fit: BoxFit.cover,
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
                     ),
                   ),
                 ),
 
                 Positioned(
-                  top: 40,
+                  top: 50,
                   right: 20,
 
-                  child: Icon(Icons.favorite_border, color: Colors.white),
+                  child: GestureDetector(
+                    onTap: () {
+                      Navigator.push(
+                        context,
+
+                        MaterialPageRoute(
+                          builder: (_) => const SettingsScreen(),
+                        ),
+                      );
+                    },
+
+                    child: const Icon(
+                      Icons.settings,
+                      color: Colors.white,
+                      size: 28,
+                    ),
+                  ),
                 ),
 
                 Positioned(
-                  bottom: -50,
+                  bottom: -55,
                   left: 0,
                   right: 0,
 
-                  child: const CircleAvatar(
-                    radius: 55,
+                  child: CircleAvatar(
+                    radius: 58,
 
-                    backgroundImage: NetworkImage("https://i.pravatar.cc/300"),
+                    backgroundColor: AppColors.accent,
+
+                    child: CircleAvatar(
+                      radius: 54,
+
+                      backgroundColor: AppColors.card,
+
+                      child: const Icon(
+                        Icons.person,
+                        size: 55,
+                        color: Colors.white,
+                      ),
+                    ),
                   ),
                 ),
               ],
             ),
 
-            const SizedBox(height: 65),
+            const SizedBox(height: 70),
 
             Text(
-              "Supradip",
+              user.name,
 
               style: GoogleFonts.poppins(
+                color: AppColors.text,
+
                 fontSize: 28,
 
                 fontWeight: FontWeight.bold,
@@ -63,27 +101,43 @@ class ProfileScreen extends StatelessWidget {
 
             const SizedBox(height: 8),
 
-            Text(
-              "Build in silence.\nDeploy loudly 🚀",
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 30),
 
-              textAlign: TextAlign.center,
+              child: Text(
+                user.bio,
 
-              style: GoogleFonts.poppins(color: Colors.grey),
+                textAlign: TextAlign.center,
+
+                style: GoogleFonts.poppins(color: AppColors.subText),
+              ),
             ),
 
+            const SizedBox(height: 25),
+
+            Wrap(
+              spacing: 10,
+
+              runSpacing: 10,
+
+              children: user.skills
+                  .map((skill) => CustomChip(title: skill))
+                  .toList(),
+            ),
+
+            const SizedBox(height: 35),
+
+            settingsTile(Icons.folder_open, "My Projects"),
+
+            settingsTile(Icons.code, "GitHub"),
+
+            settingsTile(Icons.people, "Connections"),
+
+            settingsTile(Icons.star_border, "Achievements"),
+
+            settingsTile(Icons.settings, "Settings"),
+
             const SizedBox(height: 30),
-
-            settingsTile(Icons.location_on_outlined, "My Projects"),
-
-            settingsTile(Icons.person_outline, "Account"),
-
-            settingsTile(Icons.notifications_none, "Notifications"),
-
-            settingsTile(Icons.devices, "Devices"),
-
-            settingsTile(Icons.lock_outline, "Password"),
-
-            settingsTile(Icons.code, "Skills"),
           ],
         ),
       ),
@@ -97,22 +151,22 @@ class ProfileScreen extends StatelessWidget {
       padding: const EdgeInsets.all(18),
 
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.card,
 
-        borderRadius: BorderRadius.circular(15),
+        borderRadius: BorderRadius.circular(20),
       ),
 
       child: Row(
         children: [
-          Icon(icon, color: Colors.grey),
+          Icon(icon, color: Colors.white70),
 
           const SizedBox(width: 15),
 
-          Text(title, style: GoogleFonts.poppins(fontSize: 15)),
+          Text(title, style: GoogleFonts.poppins(color: Colors.white)),
 
           const Spacer(),
 
-          const Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey),
+          const Icon(Icons.arrow_forward_ios, size: 15, color: Colors.grey),
         ],
       ),
     );

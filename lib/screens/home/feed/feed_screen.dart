@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 class FeedScreen extends StatelessWidget {
   const FeedScreen({super.key});
@@ -6,11 +7,11 @@ class FeedScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: const Color(0xff101522),
 
       body: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.all(15),
+          padding: const EdgeInsets.all(20),
 
           child: Column(
             children: [
@@ -25,13 +26,16 @@ class FeedScreen extends StatelessWidget {
                     ),
 
                     decoration: BoxDecoration(
-                      color: Colors.grey[900],
-                      borderRadius: BorderRadius.circular(10),
+                      color: const Color(0xff1A2233),
+
+                      borderRadius: BorderRadius.circular(12),
                     ),
 
                     child: const Row(
                       children: [
                         Text("For You", style: TextStyle(color: Colors.white)),
+
+                        SizedBox(width: 6),
 
                         Icon(Icons.keyboard_arrow_down, color: Colors.white),
                       ],
@@ -45,16 +49,17 @@ class FeedScreen extends StatelessWidget {
               const SizedBox(height: 20),
 
               SizedBox(
-                height: 45,
+                height: 40,
 
                 child: ListView(
                   scrollDirection: Axis.horizontal,
 
                   children: [
                     chip("All"),
-                    chip("Photo"),
-                    chip("Video"),
-                    chip("Sound"),
+                    chip("Project"),
+                    chip("Team"),
+                    chip("Hackathon"),
+                    chip("Jobs"),
                   ],
                 ),
               ),
@@ -63,12 +68,12 @@ class FeedScreen extends StatelessWidget {
 
               Expanded(
                 child: ListView(
-                  children: [
-                    postCard("Supradip", "Started building D!D 🚀"),
+                  children: const [
+                    FeedCard(),
 
-                    const SizedBox(height: 20),
+                    SizedBox(height: 20),
 
-                    postCard("Developer", "Need Flutter team members"),
+                    FeedCard(),
                   ],
                 ),
               ),
@@ -83,11 +88,12 @@ class FeedScreen extends StatelessWidget {
     return Container(
       margin: const EdgeInsets.only(right: 10),
 
-      padding: const EdgeInsets.symmetric(horizontal: 20),
+      padding: const EdgeInsets.symmetric(horizontal: 18),
 
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: Colors.white24),
+        color: const Color(0xff1A2233),
+
+        borderRadius: BorderRadius.circular(12),
       ),
 
       child: Center(
@@ -95,31 +101,59 @@ class FeedScreen extends StatelessWidget {
       ),
     );
   }
+}
 
-  Widget postCard(String user, String caption) {
+class FeedCard extends StatelessWidget {
+  const FeedCard({super.key});
+
+  @override
+  Widget build(BuildContext context) {
     return Container(
+      padding: const EdgeInsets.all(15),
+
       decoration: BoxDecoration(
-        color: const Color(0xff111111),
+        color: const Color(0xff1A2233),
+
         borderRadius: BorderRadius.circular(25),
       ),
-
-      padding: const EdgeInsets.all(15),
 
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
 
         children: [
-          Text(
-            user,
-            style: const TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.bold,
-            ),
+          const Row(
+            children: [
+              CircleAvatar(),
+
+              SizedBox(width: 10),
+
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+
+                children: [
+                  Text(
+                    "Developer",
+
+                    style: TextStyle(
+                      color: Colors.white,
+
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+
+                  Text("2h", style: TextStyle(color: Colors.grey)),
+                ],
+              ),
+            ],
           ),
 
-          const SizedBox(height: 10),
+          const SizedBox(height: 15),
 
-          Text(caption, style: const TextStyle(color: Colors.white70)),
+          Text(
+            "Project update goes here 🚀",
+
+            style: GoogleFonts.poppins(color: Colors.white),
+          ),
 
           const SizedBox(height: 15),
 
@@ -127,6 +161,30 @@ class FeedScreen extends StatelessWidget {
             borderRadius: BorderRadius.circular(20),
 
             child: Image.network("https://picsum.photos/500/300"),
+          ),
+
+          const SizedBox(height: 15),
+
+          const Row(
+            children: [
+              Icon(Icons.favorite_border, color: Colors.white),
+
+              SizedBox(width: 8),
+
+              Text("120", style: TextStyle(color: Colors.white)),
+
+              SizedBox(width: 25),
+
+              Icon(Icons.chat_bubble_outline, color: Colors.white),
+
+              SizedBox(width: 8),
+
+              Text("15", style: TextStyle(color: Colors.white)),
+
+              Spacer(),
+
+              Icon(Icons.share, color: Colors.white),
+            ],
           ),
         ],
       ),

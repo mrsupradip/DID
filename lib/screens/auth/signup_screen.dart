@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../profile/profile_setup_screen.dart';
 
 class SignupScreen extends StatelessWidget {
   const SignupScreen({super.key});
@@ -48,23 +49,30 @@ class SignupScreen extends StatelessWidget {
                   width: 250,
                   height: 55,
 
-                  child: OutlinedButton(
-                    onPressed: () {},
+                  child: ElevatedButton(
+                    onPressed: () {
+                      Navigator.pushReplacement(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const ProfileSetupScreen(),
+                        ),
+                      );
+                    },
 
-                    style: OutlinedButton.styleFrom(
-                      side: BorderSide(color: accent),
-
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.greenAccent,
+                      padding: const EdgeInsets.symmetric(vertical: 18),
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(40),
+                        borderRadius: BorderRadius.circular(30),
                       ),
                     ),
 
-                    child: Text(
+                    child: const Text(
                       "SIGN UP",
-                      style: GoogleFonts.poppins(
-                        color: accent,
+                      style: TextStyle(
+                        color: Colors.black,
                         fontSize: 18,
-                        fontWeight: FontWeight.w600,
+                        fontWeight: FontWeight.bold,
                       ),
                     ),
                   ),

@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
-import 'package:did/screens/home/feed/feed_screen.dart';
+import 'feed/feed_screen.dart';
+import '../chat/chat_screen.dart';
+import '../profile/profile_screen.dart';
+import '../create/create_post_screen.dart';
+import '../settings/settings_screen.dart';
 import '../team_match/team_match_screen.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -12,27 +15,19 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   int selectedIndex = 0;
-
-  final Color green = const Color(0xff63FF9B);
+  final pages = const [
+    HomePage(),
+    FeedScreen(),
+    CreatePostScreen(),
+    ChatScreen(),
+    TeamMatchScreen(),
+    ProfileScreen(),
+  ];
 
   @override
   Widget build(BuildContext context) {
-    final pages = [
-      const HomePage(),
-
-      const FeedScreen(),
-
-      const Center(
-        child: Text("Team Match", style: TextStyle(color: Colors.white)),
-      ),
-
-      const Center(
-        child: Text("Profile", style: TextStyle(color: Colors.white)),
-      ),
-    ];
-
     return Scaffold(
-      backgroundColor: const Color(0xff1B1E2B),
+      backgroundColor: const Color(0xff101522),
 
       body: pages[selectedIndex],
 
@@ -45,31 +40,28 @@ class _HomeScreenState extends State<HomeScreen> {
           });
         },
 
-        backgroundColor: Colors.black,
-
         type: BottomNavigationBarType.fixed,
 
-        selectedItemColor: green,
+        backgroundColor: Colors.black,
+
+        selectedItemColor: Colors.greenAccent,
 
         unselectedItemColor: Colors.white54,
 
-        items: [
-          const BottomNavigationBarItem(icon: Icon(Icons.home), label: ""),
+        items: const [
+          BottomNavigationBarItem(icon: Icon(Icons.home), label: ""),
+
+          BottomNavigationBarItem(icon: Icon(Icons.dynamic_feed), label: ""),
 
           BottomNavigationBarItem(
-            icon: Container(
-              padding: const EdgeInsets.all(10),
+            icon: Icon(Icons.add_circle, size: 35),
 
-              decoration: BoxDecoration(color: green, shape: BoxShape.circle),
-
-              child: const Icon(Icons.dynamic_feed, color: Colors.black),
-            ),
             label: "",
           ),
 
-          const BottomNavigationBarItem(icon: Icon(Icons.groups), label: ""),
+          BottomNavigationBarItem(icon: Icon(Icons.chat), label: ""),
 
-          const BottomNavigationBarItem(icon: Icon(Icons.person), label: ""),
+          BottomNavigationBarItem(icon: Icon(Icons.person), label: ""),
         ],
       ),
     );
@@ -81,167 +73,240 @@ class HomePage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    Color green = const Color(0xff63FF9B);
-
     return SafeArea(
-      child: Padding(
+      child: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
 
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
 
           children: [
+            /// TOP BAR
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
 
               children: [
-                const Icon(Icons.menu, color: Colors.white, size: 30),
+                IconButton(
+                  icon: const Icon(Icons.menu, color: Colors.white),
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const SettingsScreen()),
+                    );
+                  },
+                ),
 
-                CircleAvatar(
-                  backgroundColor: green,
+                GestureDetector(
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const ProfileScreen()),
+                    );
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.all(2),
 
-                  child: const Icon(Icons.person, color: Colors.black),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(100),
+
+                      border: Border.all(color: Colors.greenAccent),
+                    ),
+
+                    child: const CircleAvatar(
+                      radius: 22,
+
+                      child: Icon(Icons.person),
+                    ),
+                  ),
                 ),
               ],
             ),
 
             const SizedBox(height: 30),
 
-            RichText(
-              text: TextSpan(
+            const Text(
+              "Welcome Back 👋",
+
+              style: TextStyle(color: Colors.grey, fontSize: 18),
+            ),
+
+            const SizedBox(height: 10),
+
+            const Text(
+              "Ready To Build?",
+
+              style: TextStyle(
+                color: Colors.white,
+
+                fontSize: 34,
+
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+
+            const SizedBox(height: 30),
+
+            /// BANNER
+            Container(
+              padding: const EdgeInsets.all(20),
+
+              decoration: BoxDecoration(
+                color: Colors.greenAccent,
+
+                borderRadius: BorderRadius.circular(30),
+              ),
+
+              child: const Row(
                 children: [
-                  TextSpan(
-                    text: "Your Favorite\n",
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
 
-                    style: GoogleFonts.poppins(
-                      color: Colors.white,
+                      children: [
+                        Text(
+                          "Build Together",
 
-                      fontWeight: FontWeight.bold,
+                          style: TextStyle(
+                            color: Colors.black,
 
-                      fontSize: 34,
+                            fontSize: 22,
+
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+
+                        SizedBox(height: 8),
+
+                        Text(
+                          "Connect with developers and create projects",
+
+                          style: TextStyle(color: Colors.black87),
+                        ),
+                      ],
                     ),
                   ),
 
-                  TextSpan(
-                    text: "Developers",
-
-                    style: GoogleFonts.poppins(
-                      color: green,
-
-                      fontWeight: FontWeight.bold,
-
-                      fontSize: 34,
-                    ),
-                  ),
+                  Icon(Icons.rocket_launch, color: Colors.black, size: 45),
                 ],
               ),
             ),
 
-            const SizedBox(height: 25),
+            const SizedBox(height: 35),
 
-            SizedBox(
-              height: 40,
+            const Text(
+              "Explore",
 
-              child: ListView(
-                scrollDirection: Axis.horizontal,
+              style: TextStyle(
+                color: Colors.white,
 
-                children: [
-                  chip("All", true),
+                fontWeight: FontWeight.bold,
 
-                  chip("Flutter", false),
-
-                  chip("Backend", false),
-
-                  chip("AI", false),
-
-                  chip("Projects", false),
-                ],
+                fontSize: 24,
               ),
             ),
 
-            const SizedBox(height: 25),
+            const SizedBox(height: 15),
 
-            Expanded(
-              child: ListView(
-                children: [
-                  card("D!D Team Finder", "Find teammates instantly", green),
+            Wrap(
+              spacing: 10,
 
-                  const SizedBox(height: 20),
+              runSpacing: 10,
 
-                  card("Flutter Hub", "Need mobile developers", green),
-                ],
+              children: [
+                chip("Flutter"),
+
+                chip("AI"),
+
+                chip("Backend"),
+
+                chip("Open Source"),
+
+                chip("Hackathon"),
+
+                chip("Projects"),
+              ],
+            ),
+
+            const SizedBox(height: 35),
+
+            const Text(
+              "Trending",
+
+              style: TextStyle(
+                color: Colors.white,
+
+                fontWeight: FontWeight.bold,
+
+                fontSize: 24,
               ),
             ),
+
+            const SizedBox(height: 20),
+
+            card(),
+
+            const SizedBox(height: 15),
+
+            card(),
           ],
         ),
       ),
     );
   }
 
-  Widget chip(String text, bool active) {
+  static Widget chip(String title) {
     return Container(
-      margin: const EdgeInsets.only(right: 10),
-
-      padding: const EdgeInsets.symmetric(horizontal: 20),
+      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
 
       decoration: BoxDecoration(
-        color: active ? const Color(0xff63FF9B) : const Color(0xff2B3040),
+        color: const Color(0xff1B2235),
 
-        borderRadius: BorderRadius.circular(25),
+        borderRadius: BorderRadius.circular(15),
       ),
 
-      child: Center(
-        child: Text(
-          text,
-          style: TextStyle(color: active ? Colors.black : Colors.white),
-        ),
-      ),
+      child: Text(title, style: const TextStyle(color: Colors.white)),
     );
   }
 
-  Widget card(String title, String sub, Color green) {
+  static Widget card() {
     return Container(
-      height: 140,
-
       padding: const EdgeInsets.all(20),
 
       decoration: BoxDecoration(
-        color: const Color(0xff0F121A),
+        color: const Color(0xff1B2235),
 
         borderRadius: BorderRadius.circular(25),
       ),
 
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-
+      child: const Row(
         children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
 
-            decoration: BoxDecoration(
-              color: green,
+              children: [
+                Text(
+                  "Discover developer projects",
 
-              borderRadius: BorderRadius.circular(20),
+                  style: TextStyle(
+                    color: Colors.white,
+
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+
+                SizedBox(height: 8),
+
+                Text(
+                  "Find teammates and collaborate",
+
+                  style: TextStyle(color: Colors.grey),
+                ),
+              ],
             ),
-
-            child: const Text("LIVE", style: TextStyle(color: Colors.black)),
           ),
 
-          const Spacer(),
-
-          Text(
-            title,
-
-            style: const TextStyle(
-              color: Colors.white,
-
-              fontSize: 18,
-
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-
-          Text(sub, style: const TextStyle(color: Colors.grey)),
+          Icon(Icons.arrow_forward, color: Colors.white),
         ],
       ),
     );

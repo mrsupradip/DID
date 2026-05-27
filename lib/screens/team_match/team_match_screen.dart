@@ -1,15 +1,12 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 class TeamMatchScreen extends StatelessWidget {
   const TeamMatchScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
-    Color green = const Color(0xff63FF9B);
-
     return Scaffold(
-      backgroundColor: const Color(0xff1B1E2B),
+      backgroundColor: const Color(0xff101522),
 
       body: SafeArea(
         child: Padding(
@@ -19,19 +16,19 @@ class TeamMatchScreen extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
 
             children: [
-              Text(
-                "Find Your\nDream Team",
+              const Text(
+                "Find Your Team",
 
-                style: GoogleFonts.poppins(
+                style: TextStyle(
                   color: Colors.white,
 
-                  fontSize: 34,
+                  fontSize: 32,
 
                   fontWeight: FontWeight.bold,
                 ),
               ),
 
-              const SizedBox(height: 25),
+              const SizedBox(height: 20),
 
               TextField(
                 style: const TextStyle(color: Colors.white),
@@ -45,10 +42,10 @@ class TeamMatchScreen extends StatelessWidget {
 
                   filled: true,
 
-                  fillColor: const Color(0xff0F121A),
+                  fillColor: const Color(0xff1B2235),
 
                   border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(20),
+                    borderRadius: BorderRadius.circular(15),
 
                     borderSide: BorderSide.none,
                   ),
@@ -59,37 +56,16 @@ class TeamMatchScreen extends StatelessWidget {
 
               Expanded(
                 child: ListView(
-                  children: [
-                    teamCard(
-                      "Flutter Project",
-                      "Need Flutter + Firebase dev",
+                  children: const [
+                    TeamCard(),
 
-                      "3/5 members",
+                    SizedBox(height: 15),
 
-                      green,
-                    ),
+                    TeamCard(),
 
-                    const SizedBox(height: 20),
+                    SizedBox(height: 15),
 
-                    teamCard(
-                      "AI Hackathon",
-                      "Need backend engineer",
-
-                      "2/6 members",
-
-                      green,
-                    ),
-
-                    const SizedBox(height: 20),
-
-                    teamCard(
-                      "D!D Startup",
-                      "Need UI designer",
-
-                      "1/4 members",
-
-                      green,
-                    ),
+                    TeamCard(),
                   ],
                 ),
               ),
@@ -99,13 +75,18 @@ class TeamMatchScreen extends StatelessWidget {
       ),
     );
   }
+}
 
-  Widget teamCard(String title, String sub, String members, Color green) {
+class TeamCard extends StatelessWidget {
+  const TeamCard({super.key});
+
+  @override
+  Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(18),
 
       decoration: BoxDecoration(
-        color: const Color(0xff0F121A),
+        color: const Color(0xff1B2235),
 
         borderRadius: BorderRadius.circular(25),
       ),
@@ -116,8 +97,14 @@ class TeamMatchScreen extends StatelessWidget {
         children: [
           Row(
             children: [
-              CircleAvatar(
-                backgroundColor: green,
+              Container(
+                padding: const EdgeInsets.all(12),
+
+                decoration: BoxDecoration(
+                  color: Colors.greenAccent,
+
+                  borderRadius: BorderRadius.circular(15),
+                ),
 
                 child: const Icon(Icons.groups, color: Colors.black),
               ),
@@ -127,20 +114,19 @@ class TeamMatchScreen extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 12,
-
                   vertical: 6,
                 ),
 
                 decoration: BoxDecoration(
-                  color: green,
+                  color: Colors.black,
 
-                  borderRadius: BorderRadius.circular(20),
+                  borderRadius: BorderRadius.circular(30),
                 ),
 
-                child: Text(
-                  members,
+                child: const Text(
+                  "Open",
 
-                  style: const TextStyle(color: Colors.black),
+                  style: TextStyle(color: Colors.white),
                 ),
               ),
             ],
@@ -148,23 +134,27 @@ class TeamMatchScreen extends StatelessWidget {
 
           const SizedBox(height: 20),
 
-          Text(
-            title,
+          const Text(
+            "Project title loads dynamically",
 
-            style: const TextStyle(
+            style: TextStyle(
               color: Colors.white,
 
-              fontWeight: FontWeight.bold,
-
               fontSize: 18,
+
+              fontWeight: FontWeight.bold,
             ),
           ),
 
-          const SizedBox(height: 8),
+          SizedBox(height: 10),
 
-          Text(sub, style: const TextStyle(color: Colors.grey)),
+          Text(
+            "Required skills appear from backend",
 
-          const SizedBox(height: 20),
+            style: TextStyle(color: Colors.grey),
+          ),
+
+          SizedBox(height: 20),
 
           SizedBox(
             width: double.infinity,
@@ -172,7 +162,9 @@ class TeamMatchScreen extends StatelessWidget {
             child: ElevatedButton(
               onPressed: () {},
 
-              style: ElevatedButton.styleFrom(backgroundColor: green),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.greenAccent,
+              ),
 
               child: const Text(
                 "Join Team",

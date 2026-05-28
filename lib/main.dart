@@ -70,6 +70,8 @@ class _DIDAppState extends State<DIDApp> with WidgetsBindingObserver {
   }
 
   Future<void> _checkSessionExpiry() async {
+    if (Firebase.apps.isEmpty) return;
+
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
 

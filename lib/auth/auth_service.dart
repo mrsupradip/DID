@@ -20,7 +20,6 @@ class AuthService {
       } else {
         lastError = e.toString();
       }
-      print('AuthService.signUp error: $lastError');
       return null;
     }
   }
@@ -40,7 +39,6 @@ class AuthService {
       } else {
         lastError = e.toString();
       }
-      print('AuthService.login error: $lastError');
       return null;
     }
   }

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../screens/auth/biometric_gate_screen.dart';
 import '../screens/auth/login_screen.dart';
 import '../screens/auth/signup_screen.dart';
 import '../screens/home/home_screen.dart';
@@ -14,6 +15,8 @@ class AppRoutes {
   static const signup = "/signup";
 
   static const profileSetup = "/profileSetup";
+
+  static const biometricGate = "/biometric-gate";
 
   static const home = "/home";
 
@@ -30,6 +33,9 @@ class AppRoutes {
 
       case profileSetup:
         return MaterialPageRoute(builder: (_) => const ProfileSetupScreen());
+
+      case biometricGate:
+        return MaterialPageRoute(builder: (_) => const BiometricGateScreen());
 
       case home:
         return MaterialPageRoute(builder: (_) => const HomeScreen());

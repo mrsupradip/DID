@@ -29,10 +29,10 @@ class DefaultFirebaseOptions {
       case TargetPlatform.windows:
         return windows;
       case TargetPlatform.linux:
-        throw UnsupportedError(
-          'DefaultFirebaseOptions have not been configured for linux - '
-          'you can reconfigure this by running the FlutterFire CLI again.',
-        );
+        // Minimal workaround: reuse Android Firebase options so Linux builds/runs
+        // without crashing. For full Firebase support on Linux, re-run
+        // FlutterFire CLI with a Linux target.
+        return android;
       default:
         throw UnsupportedError(
           'DefaultFirebaseOptions are not supported for this platform.',
@@ -46,7 +46,7 @@ class DefaultFirebaseOptions {
     messagingSenderId: '1076844048183',
     projectId: 'did-c1213',
     authDomain: 'did-c1213.firebaseapp.com',
-    storageBucket: 'did-c1213.firebasestorage.app',
+    storageBucket: 'did-c1213.appspot.com',
     measurementId: 'G-RX2HHW1M3T',
   );
 
@@ -55,7 +55,7 @@ class DefaultFirebaseOptions {
     appId: '1:1076844048183:android:ebed918ad7ac51033134b2',
     messagingSenderId: '1076844048183',
     projectId: 'did-c1213',
-    storageBucket: 'did-c1213.firebasestorage.app',
+    storageBucket: 'did-c1213.appspot.com',
   );
 
   static const FirebaseOptions ios = FirebaseOptions(
@@ -63,7 +63,7 @@ class DefaultFirebaseOptions {
     appId: '1:1076844048183:ios:2ec90d7c1dbfaca33134b2',
     messagingSenderId: '1076844048183',
     projectId: 'did-c1213',
-    storageBucket: 'did-c1213.firebasestorage.app',
+    storageBucket: 'did-c1213.appspot.com',
     iosBundleId: 'com.example.did',
   );
 
@@ -72,7 +72,7 @@ class DefaultFirebaseOptions {
     appId: '1:1076844048183:ios:2ec90d7c1dbfaca33134b2',
     messagingSenderId: '1076844048183',
     projectId: 'did-c1213',
-    storageBucket: 'did-c1213.firebasestorage.app',
+    storageBucket: 'did-c1213.appspot.com',
     iosBundleId: 'com.example.did',
   );
 
@@ -82,7 +82,7 @@ class DefaultFirebaseOptions {
     messagingSenderId: '1076844048183',
     projectId: 'did-c1213',
     authDomain: 'did-c1213.firebaseapp.com',
-    storageBucket: 'did-c1213.firebasestorage.app',
+    storageBucket: 'did-c1213.appspot.com',
     measurementId: 'G-K2M3C4FRZE',
   );
 }

@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../auth/auth_service.dart';
-import '../home/home_screen.dart';
+import '../../routes/app_routes.dart';
+import '../../services/permission_service.dart';
 import 'signup_screen.dart';
 import '../../services/session_service.dart';
 
@@ -134,12 +135,11 @@ class _LoginScreenState extends State<LoginScreen> {
                       if (user != null) {
                         await SessionService.updateLastActive();
                         await SessionService.saveLastEmail(email);
+                        await PermissionService.requestOnboardingPermissions();
                         if (!context.mounted) return;
-                        Navigator.pushReplacement(
+                        Navigator.of(
                           context,
-
-                          MaterialPageRoute(builder: (_) => const HomeScreen()),
-                        );
+                        ).pushReplacementNamed(AppRoutes.biometricGate);
                       } else {
                         final err =
                             authService.lastError ??

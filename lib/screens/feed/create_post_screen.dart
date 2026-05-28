@@ -1,6 +1,7 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
+import 'dart:io';
 
 import '../../services/post_firestore_service.dart';
 
@@ -28,6 +29,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
   }
 
   Future<void> _pickAttachment({required bool isPhoto}) async {
+    if (loading) return;
     final result = await FilePicker.pickFiles(
       allowMultiple: false,
       type: isPhoto ? FileType.image : FileType.any,
@@ -122,6 +124,27 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                 ),
               ),
 
+            if (attachmentType == 'photo' && attachmentPath != null) ...[
+              const SizedBox(height: 12),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(16),
+                child: Image.file(
+                  File(attachmentPath!),
+                  width: double.infinity,
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, _, _) => Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(12),
+                    color: const Color(0xff1B2235),
+                    child: const Text(
+                      'Unable to preview this image',
+                      style: TextStyle(color: Colors.white70),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+
             const SizedBox(height: 20),
 
             Row(
@@ -155,6 +178,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                 onPressed: loading
                     ? null
                     : () async {
+                        final navigator = Navigator.of(context);
                         FocusScope.of(context).unfocus();
                         final messenger = ScaffoldMessenger.of(context);
 
@@ -168,6 +192,19 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                           return;
                         }
 
+                        if (attachmentType == 'photo') {
+                          final path = attachmentPath ?? '';
+                          if (path.isEmpty || !File(path).existsSync()) {
+                            messenger.showSnackBar(
+                              const SnackBar(
+                                content: Text('Re-select the photo to upload'),
+                              ),
+                            );
+                            return;
+                          }
+                        }
+
+                        if (loading || !mounted) return;
                         setState(() {
                           loading = true;
                         });
@@ -184,13 +221,15 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                             attachmentType: attachmentType,
                           );
 
-                          if (!context.mounted) return;
+                          if (!mounted) return;
                           messenger.showSnackBar(
                             const SnackBar(content: Text('Post created')),
                           );
 
-                          Navigator.pop(context);
+                          navigator.pop();
                         } catch (e) {
+                          debugPrint('Failed to create post: $e');
+                          if (!mounted) return;
                           messenger.showSnackBar(
                             SnackBar(
                               content: Text('Failed to create post: $e'),

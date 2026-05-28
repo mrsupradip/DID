@@ -2,7 +2,7 @@ import '../models/user_model.dart';
 
 class UserService {
   static UserModel currentUser = UserModel(
-    id: "1",
+    id: "",
 
     name: "Developer",
 
@@ -18,6 +18,7 @@ class UserService {
   );
 
   static void updateCurrentUser({
+    required String id,
     required String name,
     required String email,
     required String bio,
@@ -26,7 +27,7 @@ class UserService {
     required String profileImage,
   }) {
     currentUser = UserModel(
-      id: currentUser.id,
+      id: id,
       name: name,
       email: email,
       bio: bio,

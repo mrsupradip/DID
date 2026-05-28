@@ -1,10 +1,12 @@
+import 'dart:async';
 import 'dart:io' show Platform;
 
 import 'package:animated_text_kit/animated_text_kit.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-import '../auth/login_screen.dart';
+import '../../routes/app_routes.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -17,6 +19,8 @@ class _SplashScreenState extends State<SplashScreen>
     with SingleTickerProviderStateMixin {
   late AnimationController controller;
   late Animation<double> scaleAnimation;
+  Timer? _startupTimer;
+  bool _routingStarted = false;
 
   @override
   void initState() {
@@ -34,24 +38,35 @@ class _SplashScreenState extends State<SplashScreen>
 
     controller.forward();
 
-    // Only skip automatic navigation when running Flutter tests. The test
-    // runner sets the environment variable `FLUTTER_TEST=true`.
-    final inTest = Platform.environment['FLUTTER_TEST'] == 'true';
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _startStartupFlow();
+    });
+  }
 
-    if (!inTest) {
-      Future.delayed(const Duration(seconds: 5), () {
-        if (mounted) {
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(builder: (_) => const LoginScreen()),
-          );
-        }
-      });
-    }
+  Future<void> _startStartupFlow() async {
+    if (_routingStarted) return;
+    _routingStarted = true;
+
+    final inTest = Platform.environment['FLUTTER_TEST'] == 'true';
+    if (inTest) return;
+
+    _startupTimer?.cancel();
+    _startupTimer = Timer(const Duration(seconds: 2), () {
+      if (!mounted) return;
+
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) {
+        Navigator.of(context).pushReplacementNamed(AppRoutes.login);
+        return;
+      }
+
+      Navigator.of(context).pushReplacementNamed(AppRoutes.biometricGate);
+    });
   }
 
   @override
   void dispose() {
+    _startupTimer?.cancel();
     controller.dispose();
     super.dispose();
   }
@@ -69,13 +84,24 @@ class _SplashScreenState extends State<SplashScreen>
             mainAxisAlignment: MainAxisAlignment.center,
 
             children: [
-              Text(
-                "D!D",
-                style: GoogleFonts.orbitron(
-                  fontSize: 75,
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 8,
+              Container(
+                width: 190,
+                height: 190,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.blueAccent.withValues(alpha: 0.26),
+                      blurRadius: 30,
+                      spreadRadius: 4,
+                    ),
+                  ],
+                ),
+                child: ClipOval(
+                  child: Image.asset(
+                    'assets/images/didapplogo.png',
+                    fit: BoxFit.cover,
+                  ),
                 ),
               ),
 

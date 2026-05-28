@@ -38,4 +38,8 @@ class FirestoreService {
         .doc(uid)
         .set(data ?? {}, SetOptions(merge: true));
   }
+
+  Future<void> deleteUser({required String uid}) async {
+    await firestore.collection('users').doc(uid).delete();
+  }
 }

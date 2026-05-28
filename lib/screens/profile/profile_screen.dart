@@ -1,10 +1,9 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../services/profile_service.dart';
+import '../../utils/image_source.dart';
 import '../../widgets/custom_chip.dart';
 import '../settings/settings_screen.dart';
 import 'edit_profile_screen.dart';
@@ -59,12 +58,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     Container(
                       height: 260,
                       decoration: BoxDecoration(
-                        image: profile.headerImagePath.isNotEmpty
-                            ? DecorationImage(
-                                image: FileImage(File(profile.headerImagePath)),
+                        image:
+                            resolveImageProvider(profile.headerImagePath) ==
+                                null
+                            ? null
+                            : DecorationImage(
+                                image: resolveImageProvider(
+                                  profile.headerImagePath,
+                                )!,
                                 fit: BoxFit.cover,
-                              )
-                            : null,
+                              ),
                         gradient: profile.headerImagePath.isEmpty
                             ? const LinearGradient(
                                 colors: [Color(0xff34d399), Color(0xff0F172A)],
@@ -116,9 +119,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         child: CircleAvatar(
                           radius: 56,
                           backgroundColor: const Color(0xff111827),
-                          backgroundImage: profile.profileImagePath.isNotEmpty
-                              ? FileImage(File(profile.profileImagePath))
-                              : null,
+                          backgroundImage: resolveImageProvider(
+                            profile.profileImagePath,
+                          ),
                           child: profile.profileImagePath.isEmpty
                               ? const Icon(
                                   Icons.person,

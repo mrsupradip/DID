@@ -1,5 +1,6 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+
+import '../home/home_screen.dart' show LiveFeedSection;
 
 class FeedScreen extends StatelessWidget {
   const FeedScreen({super.key});
@@ -8,112 +9,30 @@ class FeedScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xff101522),
-
       appBar: AppBar(
-        backgroundColor: Colors.transparent,
-
-        title: const Text("D!D Feed"),
+        backgroundColor: const Color(0xff101522),
+        elevation: 0,
+        centerTitle: false,
+        title: const Text(
+          'Live Feed',
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+        ),
       ),
-
-      body: StreamBuilder(
-        stream: FirebaseFirestore.instance
-            .collection("posts")
-            .orderBy("createdAt", descending: true)
-            .snapshots(),
-
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          }
-
-          if (!snapshot.hasData) {
-            return const Center(
-              child: Text(
-                "No Posts Yet",
-                style: TextStyle(color: Colors.white),
+      body: const SafeArea(
+        child: SingleChildScrollView(
+          padding: EdgeInsets.fromLTRB(18, 8, 18, 28),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Latest posts',
+                style: TextStyle(color: Colors.white70, fontSize: 14),
               ),
-            );
-          }
-
-          final posts = snapshot.data!.docs;
-
-          if (posts.isEmpty) {
-            return const Center(
-              child: Text(
-                'No posts yet',
-                style: TextStyle(color: Colors.white),
-              ),
-            );
-          }
-
-          return ListView.builder(
-            itemCount: posts.length,
-
-            itemBuilder: (context, index) {
-              final post = posts[index];
-
-              return Container(
-                margin: const EdgeInsets.all(12),
-
-                padding: const EdgeInsets.all(18),
-
-                decoration: BoxDecoration(
-                  color: const Color(0xff1B2235),
-
-                  borderRadius: BorderRadius.circular(20),
-                ),
-
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-
-                  children: [
-                    Text(
-                      post["caption"],
-
-                      style: const TextStyle(color: Colors.white, fontSize: 16),
-                    ),
-
-                    const SizedBox(height: 15),
-
-                    if (post.data()["attachmentName"] != null)
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: const Color(0xff111827),
-                          borderRadius: BorderRadius.circular(14),
-                        ),
-                        child: Text(
-                          '${post["attachmentType"] ?? "file"}: ${post["attachmentName"]}',
-                          style: const TextStyle(color: Colors.greenAccent),
-                        ),
-                      ),
-
-                    if (post.data()["attachmentName"] != null)
-                      const SizedBox(height: 15),
-
-                    Row(
-                      children: [
-                        const Icon(
-                          Icons.favorite_border,
-                          color: Colors.white70,
-                        ),
-
-                        const SizedBox(width: 6),
-
-                        Text(
-                          post["likes"].toString(),
-
-                          style: const TextStyle(color: Colors.white70),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              );
-            },
-          );
-        },
+              SizedBox(height: 14),
+              LiveFeedSection(),
+            ],
+          ),
+        ),
       ),
     );
   }

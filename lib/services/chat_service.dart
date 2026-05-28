@@ -25,59 +25,55 @@ class ChatContact {
 }
 
 class ChatService {
-  static final List<ChatContact> conversations = [
-    ChatContact(
-      id: 'dev-1',
-      name: 'Ava Chen',
-      role: 'Flutter developer',
-      avatar: 'AC',
-      isTeamChat: false,
-      messages: [
-        MessageModel(
-          senderId: 'ava',
-          receiverId: 'me',
-          message: 'Hey, are you still looking for a frontend partner?',
-          time: DateTime.now().subtract(const Duration(minutes: 14)),
-        ),
-        MessageModel(
-          senderId: 'me',
-          receiverId: 'ava',
-          message: 'Yes, I can help with the UI and Firebase.',
-          time: DateTime.now().subtract(const Duration(minutes: 10)),
-        ),
-      ],
-    ),
-    ChatContact(
-      id: 'team-1',
-      name: 'Hackathon Crew',
-      role: 'Team group',
-      avatar: 'HC',
-      isTeamChat: true,
-      messages: [
-        MessageModel(
-          senderId: 'team',
-          receiverId: 'me',
-          message: 'Let’s ship the demo by tonight.',
-          time: DateTime.now().subtract(const Duration(minutes: 38)),
-        ),
-      ],
-    ),
-    ChatContact(
-      id: 'dev-2',
-      name: 'Milo Johnson',
-      role: 'Backend engineer',
-      avatar: 'MJ',
-      isTeamChat: false,
-      messages: [
-        MessageModel(
-          senderId: 'milo',
-          receiverId: 'me',
-          message: 'I pushed the API mock for posts.',
-          time: DateTime.now().subtract(const Duration(hours: 1)),
-        ),
-      ],
-    ),
-  ];
+  static final List<ChatContact> conversations = [];
+
+  static List<ChatContact> get friends =>
+      conversations.where((conversation) => !conversation.isTeamChat).toList();
+
+  static bool get hasFriends => friends.isNotEmpty;
+
+  static void addFriend(String userIdOrGithub) {
+    final normalized = userIdOrGithub.trim();
+    if (normalized.isEmpty) return;
+
+    final alreadyExists = conversations.any(
+      (conversation) =>
+          conversation.id == normalized ||
+          conversation.name.toLowerCase() == normalized.toLowerCase(),
+    );
+    if (alreadyExists) return;
+
+    final displayName = normalized
+        .replaceAll('https://github.com/', '')
+        .replaceAll('github.com/', '')
+        .split('/')
+        .last;
+    final initials = displayName
+        .split(RegExp(r'[^a-zA-Z0-9]+'))
+        .where((part) => part.isNotEmpty)
+        .take(2)
+        .map((part) => part.substring(0, 1).toUpperCase())
+        .join();
+
+    conversations.insert(
+      0,
+      ChatContact(
+        id: normalized,
+        name: displayName,
+        role: 'D!D friend',
+        avatar: initials.isEmpty ? 'F' : initials,
+        isTeamChat: false,
+        messages: [
+          MessageModel(
+            senderId: normalized,
+            receiverId: 'me',
+            message: 'Say hi to $displayName.',
+            time: DateTime.now(),
+          ),
+        ],
+      ),
+    );
+  }
 
   static List<ChatContact> search(String query) {
     final normalized = query.trim().toLowerCase();

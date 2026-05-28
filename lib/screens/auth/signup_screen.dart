@@ -3,7 +3,10 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../auth/auth_service.dart';
 import '../profile/profile_setup_screen.dart';
+import '../../services/permission_service.dart';
 import '../../services/session_service.dart';
+import '../settings/terms_conditions_screen.dart';
+import '../../services/user_service.dart';
 
 class SignupScreen extends StatefulWidget {
   const SignupScreen({super.key});
@@ -22,6 +25,97 @@ class _SignupScreenState extends State<SignupScreen> {
   final TextEditingController passwordController = TextEditingController();
 
   bool loading = false;
+  bool acceptedTerms = false;
+
+  Future<bool> _showTermsAcceptanceSheet() async {
+    bool localAccepted = acceptedTerms;
+
+    final result = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: const Color(0xff101522),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (sheetContext) {
+        return StatefulBuilder(
+          builder: (context, setSheetState) {
+            return Padding(
+              padding: EdgeInsets.fromLTRB(
+                20,
+                20,
+                20,
+                20 + MediaQuery.of(sheetContext).viewInsets.bottom,
+              ),
+              child: SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text(
+                      'Terms & Conditions',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    const Text(
+                      'Please read and accept these rules before creating your account.',
+                      style: TextStyle(color: Colors.white70),
+                    ),
+                    const SizedBox(height: 14),
+                    SizedBox(
+                      height: 280,
+                      child: const TermsConditionsScreen(),
+                    ),
+                    const SizedBox(height: 14),
+                    CheckboxListTile(
+                      value: localAccepted,
+                      onChanged: (value) {
+                        setSheetState(() => localAccepted = value ?? false);
+                      },
+                      controlAffinity: ListTileControlAffinity.leading,
+                      activeColor: Colors.greenAccent,
+                      contentPadding: EdgeInsets.zero,
+                      title: const Text(
+                        'I accept the Terms & Conditions',
+                        style: TextStyle(color: Colors.white),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: localAccepted
+                            ? () => Navigator.pop(sheetContext, true)
+                            : null,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.greenAccent,
+                          foregroundColor: Colors.black,
+                        ),
+                        child: const Text('Continue'),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+
+    if (result == true) {
+      setState(() {
+        acceptedTerms = true;
+      });
+      return true;
+    }
+    return acceptedTerms;
+  }
 
   @override
   void dispose() {
@@ -95,6 +189,39 @@ class _SignupScreenState extends State<SignupScreen> {
 
                 const SizedBox(height: 50),
 
+                CheckboxListTile(
+                  value: acceptedTerms,
+                  onChanged: (value) {
+                    setState(() => acceptedTerms = value ?? false);
+                  },
+                  controlAffinity: ListTileControlAffinity.leading,
+                  activeColor: accent,
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text(
+                    'I accept the Terms & Conditions',
+                    style: TextStyle(color: Colors.white),
+                  ),
+                  subtitle: GestureDetector(
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const TermsConditionsScreen(),
+                        ),
+                      );
+                    },
+                    child: Text(
+                      'Read the app rules and privacy policy',
+                      style: TextStyle(
+                        color: accent,
+                        decoration: TextDecoration.underline,
+                      ),
+                    ),
+                  ),
+                ),
+
+                const SizedBox(height: 12),
+
                 SizedBox(
                   width: 250,
 
@@ -103,18 +230,35 @@ class _SignupScreenState extends State<SignupScreen> {
                   child: ElevatedButton(
                     onPressed: () async {
                       FocusScope.of(context).unfocus();
+                      final messenger = ScaffoldMessenger.of(context);
 
                       final name = nameController.text.trim();
                       final email = emailController.text.trim();
                       final password = passwordController.text.trim();
 
                       if (name.isEmpty || email.isEmpty || password.isEmpty) {
-                        ScaffoldMessenger.of(context).showSnackBar(
+                        messenger.showSnackBar(
                           const SnackBar(
                             content: Text('Please fill all fields'),
                           ),
                         );
                         return;
+                      }
+
+                      if (!acceptedTerms) {
+                        final accepted = await _showTermsAcceptanceSheet();
+                        if (!accepted) {
+                          if (!mounted) return;
+                          messenger.showSnackBar(
+                            const SnackBar(
+                              content: Text(
+                                'Accept the Terms & Conditions to continue',
+                              ),
+                            ),
+                          );
+                        }
+
+                        if (!accepted) return;
                       }
 
                       setState(() {
@@ -132,7 +276,18 @@ class _SignupScreenState extends State<SignupScreen> {
                       });
 
                       if (user != null) {
+                        UserService.updateCurrentUser(
+                          id: user.uid,
+                          name: name,
+                          email: email,
+                          bio: '',
+                          github: '',
+                          skills: const [],
+                          profileImage: '',
+                        );
                         await SessionService.updateLastActive();
+                        await PermissionService.requestOnboardingPermissions();
+                        if (!context.mounted) return;
                         Navigator.pushReplacement(
                           context,
 
@@ -141,6 +296,7 @@ class _SignupScreenState extends State<SignupScreen> {
                           ),
                         );
                       } else {
+                        if (!context.mounted) return;
                         final err =
                             authService.lastError ??
                             'Sign up failed. Check details or network.';

@@ -120,7 +120,34 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                       ),
                     );
 
-                    if (!mounted) return;
+                    await firestoreService.updateUser(
+                      uid: user.uid,
+                      data: {
+                        'uid': user.uid,
+                        'name': nameController.text.trim(),
+                        'bio': bioController.text.trim(),
+                        'github': githubController.text.trim(),
+                        'skills': skillsController.text
+                            .split(',')
+                            .map((skill) => skill.trim())
+                            .where((skill) => skill.isNotEmpty)
+                            .toList(),
+                      },
+                    );
+
+                    await ProfileService.updateProfile((current) => current.copyWith(
+                          displayName: nameController.text.trim(),
+                          email: user.email ?? current.email,
+                          bio: bioController.text.trim(),
+                          githubUsername: githubController.text.trim(),
+                          skills: skillsController.text
+                              .split(',')
+                              .map((skill) => skill.trim())
+                              .where((skill) => skill.isNotEmpty)
+                              .toList(),
+                        ));
+
+                        if (!context.mounted) return;
                     Navigator.pushReplacement(
                       context,
 

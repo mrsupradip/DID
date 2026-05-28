@@ -4,8 +4,10 @@ import 'package:file_picker/file_picker.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
+import '../../services/cloudinary_service.dart';
 import '../../services/firestore_service.dart';
 import '../../services/profile_service.dart';
+import '../../utils/image_source.dart';
 
 class EditProfileScreen extends StatefulWidget {
   const EditProfileScreen({super.key});
@@ -66,14 +68,21 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     super.dispose();
   }
 
+  void _showSnackBar(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
+  }
+
   void _addProject() {
+    if (saving) return;
+
     final title = projectTitleController.text.trim();
     final url = projectUrlController.text.trim();
 
     if (title.isEmpty || url.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Add both project title and URL')),
-      );
+      _showSnackBar('Add both project title and URL');
       return;
     }
 
@@ -85,6 +94,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   }
 
   Future<void> _pickImage({required bool header}) async {
+    if (saving) return;
+
     final result = await FilePicker.pickFiles(
       type: FileType.image,
       allowMultiple: false,
@@ -92,16 +103,40 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     );
     if (!mounted || result == null || result.files.isEmpty) return;
 
+    final path = result.files.single.path;
+    if (path == null || path.isEmpty) {
+      _showSnackBar('Unable to read selected image');
+      return;
+    }
+
     setState(() {
       if (header) {
-        headerImagePath = result.files.single.path;
+        headerImagePath = path;
       } else {
-        profileImagePath = result.files.single.path;
+        profileImagePath = path;
       }
     });
   }
 
+  Future<String> _uploadIfNeeded(String? value) async {
+    final imageValue = value?.trim() ?? '';
+    if (imageValue.isEmpty) return '';
+
+    if (isNetworkImageUrl(imageValue)) {
+      return imageValue;
+    }
+
+    final file = File(imageValue);
+    if (!await file.exists()) {
+      throw StateError('Selected image no longer exists');
+    }
+
+    return CloudinaryService.uploadImage(file);
+  }
+
   Future<void> _save() async {
+    if (saving) return;
+
     final name = nameController.text.trim();
     final bio = bioController.text.trim();
     final github = githubController.text.trim();
@@ -112,23 +147,24 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         .toList();
 
     if (name.isEmpty || bio.isEmpty || github.isEmpty || skills.isEmpty) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Fill all profile fields')));
+      _showSnackBar('Fill all profile fields');
       return;
     }
 
     setState(() => saving = true);
 
     try {
+      final uploadedProfileImage = await _uploadIfNeeded(profileImagePath);
+      final uploadedHeaderImage = await _uploadIfNeeded(headerImagePath);
+
       final profile = await ProfileService.loadProfile();
       final updated = profile.copyWith(
         displayName: name,
         bio: bio,
         githubUsername: github,
         skills: skills,
-        profileImagePath: profileImagePath ?? '',
-        headerImagePath: headerImagePath ?? '',
+        profileImagePath: uploadedProfileImage,
+        headerImagePath: uploadedHeaderImage,
         projects: projects,
       );
 
@@ -145,10 +181,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       if (!mounted) return;
       Navigator.pop(context, true);
     } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Failed to save profile: $e')));
+      _showSnackBar('Failed to save profile: $e');
     } finally {
       if (mounted) {
         setState(() => saving = false);
@@ -165,6 +198,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       );
     }
 
+    final headerProvider = resolveImageProvider(headerImagePath ?? '');
+    final profileProvider = resolveImageProvider(profileImagePath ?? '');
+
     return Scaffold(
       backgroundColor: const Color(0xff101522),
       appBar: AppBar(
@@ -176,41 +212,41 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         child: Column(
           children: [
             GestureDetector(
-              onTap: () => _pickImage(header: true),
+              onTap: saving ? null : () => _pickImage(header: true),
               child: Container(
                 height: 150,
                 width: double.infinity,
                 decoration: BoxDecoration(
                   color: const Color(0xff1B2235),
                   borderRadius: BorderRadius.circular(20),
-                  image: headerImagePath == null
+                  image: headerProvider == null
                       ? null
                       : DecorationImage(
-                          image: FileImage(File(headerImagePath!)),
+                          image: headerProvider,
                           fit: BoxFit.cover,
                         ),
                 ),
-                child: const Center(
-                  child: Text(
-                    'Tap to change header',
-                    style: TextStyle(color: Colors.white70),
-                  ),
+                child: Center(
+                  child: saving
+                      ? const CircularProgressIndicator(color: Colors.white)
+                      : const Text(
+                          'Tap to change header',
+                          style: TextStyle(color: Colors.white70),
+                        ),
                 ),
               ),
             ),
             const SizedBox(height: 20),
             GestureDetector(
-              onTap: () => _pickImage(header: false),
+              onTap: saving ? null : () => _pickImage(header: false),
               child: CircleAvatar(
                 radius: 56,
                 backgroundColor: Colors.greenAccent,
                 child: CircleAvatar(
                   radius: 52,
                   backgroundColor: const Color(0xff1B2235),
-                  backgroundImage: profileImagePath == null
-                      ? null
-                      : FileImage(File(profileImagePath!)),
-                  child: profileImagePath == null
+                  backgroundImage: profileProvider,
+                  child: profileProvider == null
                       ? const Icon(Icons.person, size: 54, color: Colors.white)
                       : null,
                 ),
@@ -242,7 +278,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             SizedBox(
               width: double.infinity,
               child: OutlinedButton(
-                onPressed: _addProject,
+                onPressed: saving ? null : _addProject,
                 child: const Text('Add Project'),
               ),
             ),
@@ -278,11 +314,13 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                       ),
                     ),
                     IconButton(
-                      onPressed: () {
-                        setState(() {
-                          projects.remove(project);
-                        });
-                      },
+                      onPressed: saving
+                          ? null
+                          : () {
+                              setState(() {
+                                projects.remove(project);
+                              });
+                            },
                       icon: const Icon(Icons.delete, color: Colors.redAccent),
                     ),
                   ],
@@ -299,7 +337,11 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                   padding: const EdgeInsets.all(16),
                 ),
                 child: saving
-                    ? const CircularProgressIndicator(color: Colors.black)
+                    ? const SizedBox(
+                        height: 22,
+                        width: 22,
+                        child: CircularProgressIndicator(color: Colors.black),
+                      )
                     : const Text(
                         'Save Profile',
                         style: TextStyle(color: Colors.black),

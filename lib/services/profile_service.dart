@@ -206,6 +206,7 @@ class ProfileService {
     themeNotifier.value = profile.darkTheme ? ThemeMode.dark : ThemeMode.light;
 
     UserService.updateCurrentUser(
+      id: UserService.currentUser.id,
       name: profile.displayName,
       email: profile.email,
       bio: profile.bio,

@@ -1,10 +1,9 @@
-import 'dart:io';
-
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../../services/profile_service.dart';
 import '../../services/session_service.dart';
+import '../../utils/image_source.dart';
 import '../auth/login_screen.dart';
 import '../profile/edit_profile_screen.dart';
 import 'account_screen.dart';
@@ -12,6 +11,7 @@ import 'github_screen.dart';
 import 'help_screen.dart';
 import 'notification_screen.dart';
 import 'privacy_screen.dart';
+import 'terms_conditions_screen.dart';
 import 'theme_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
@@ -80,9 +80,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           CircleAvatar(
                             radius: 30,
                             backgroundColor: Colors.greenAccent,
-                            backgroundImage: profile.profileImagePath.isEmpty
-                                ? null
-                                : FileImage(File(profile.profileImagePath)),
+                            backgroundImage: resolveImageProvider(
+                              profile.profileImagePath,
+                            ),
                             child: profile.profileImagePath.isEmpty
                                 ? const Icon(Icons.person, color: Colors.black)
                                 : null,
@@ -163,6 +163,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         MaterialPageRoute(builder: (_) => const HelpScreen()),
                       );
                     }),
+                    settingTile(
+                      Icons.description_outlined,
+                      'Terms & Conditions',
+                      () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const TermsConditionsScreen(),
+                          ),
+                        );
+                      },
+                    ),
                   ],
                 ),
               ),

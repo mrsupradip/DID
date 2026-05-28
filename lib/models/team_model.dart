@@ -1,7 +1,11 @@
 class TeamModel {
   final String id;
+  final String teamCode;
 
   final String title;
+  final String projectName;
+  final String requiredMemberType;
+  final String adminUserName;
 
   final String description;
 
@@ -13,8 +17,12 @@ class TeamModel {
 
   TeamModel({
     required this.id,
+    required this.teamCode,
 
     required this.title,
+    required this.projectName,
+    required this.requiredMemberType,
+    required this.adminUserName,
 
     required this.description,
 

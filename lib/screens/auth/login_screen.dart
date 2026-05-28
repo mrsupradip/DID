@@ -23,6 +23,18 @@ class _LoginScreenState extends State<LoginScreen> {
   bool loading = false;
 
   @override
+  void initState() {
+    super.initState();
+    _loadLastEmail();
+  }
+
+  Future<void> _loadLastEmail() async {
+    final email = await SessionService.getLastEmail();
+    if (!mounted || email == null || email.isEmpty) return;
+    emailController.text = email;
+  }
+
+  @override
   void dispose() {
     emailController.dispose();
     passwordController.dispose();
@@ -91,12 +103,13 @@ class _LoginScreenState extends State<LoginScreen> {
                   child: ElevatedButton(
                     onPressed: () async {
                       FocusScope.of(context).unfocus();
+                      final messenger = ScaffoldMessenger.of(context);
 
                       final email = emailController.text.trim();
                       final password = passwordController.text.trim();
 
                       if (email.isEmpty || password.isEmpty) {
-                        ScaffoldMessenger.of(context).showSnackBar(
+                        messenger.showSnackBar(
                           const SnackBar(
                             content: Text('Please fill all fields'),
                           ),
@@ -120,6 +133,8 @@ class _LoginScreenState extends State<LoginScreen> {
 
                       if (user != null) {
                         await SessionService.updateLastActive();
+                        await SessionService.saveLastEmail(email);
+                        if (!context.mounted) return;
                         Navigator.pushReplacement(
                           context,
 
@@ -129,9 +144,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         final err =
                             authService.lastError ??
                             'Login failed. Check credentials or network.';
-                        ScaffoldMessenger.of(
-                          context,
-                        ).showSnackBar(SnackBar(content: Text(err)));
+                        messenger.showSnackBar(SnackBar(content: Text(err)));
                       }
                     },
 

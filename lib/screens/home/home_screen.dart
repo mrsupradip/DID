@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'feed/feed_screen.dart';
 import '../chat/chat_screen.dart';
 import '../profile/profile_screen.dart';
-import '../create/create_post_screen.dart';
+import '../feed/create_post_screen.dart';
 import '../settings/settings_screen.dart';
 import '../team_match/team_match_screen.dart';
 
@@ -243,7 +244,7 @@ class HomePage extends StatelessWidget {
             const SizedBox(height: 35),
 
             const Text(
-              "Trending",
+              "Live Feed",
 
               style: TextStyle(
                 color: Colors.white,
@@ -256,11 +257,11 @@ class HomePage extends StatelessWidget {
 
             const SizedBox(height: 20),
 
-            card(),
+            const FeedPreview(),
 
             const SizedBox(height: 15),
 
-            card(),
+            const FeedPreview(),
           ],
         ),
       ),
@@ -322,6 +323,62 @@ class HomePage extends StatelessWidget {
           Icon(Icons.arrow_forward, color: Colors.white),
         ],
       ),
+    );
+  }
+}
+
+class FeedPreview extends StatelessWidget {
+  const FeedPreview({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+      stream: FirebaseFirestore.instance
+          .collection('posts')
+          .orderBy('createdAt', descending: true)
+          .limit(1)
+          .snapshots(),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+          return HomePage.card();
+        }
+
+        final post = snapshot.data!.docs.first.data();
+        final caption = (post['caption'] ?? '').toString();
+        final attachmentName = post['attachmentName'];
+
+        return Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: const Color(0xff1B2235),
+            borderRadius: BorderRadius.circular(25),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'New post from your network',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 10),
+              Text(
+                caption.isEmpty ? 'Shared something new' : caption,
+                style: const TextStyle(color: Colors.grey),
+              ),
+              if (attachmentName != null) ...[
+                const SizedBox(height: 10),
+                Text(
+                  attachmentName.toString(),
+                  style: const TextStyle(color: Colors.greenAccent),
+                ),
+              ],
+            ],
+          ),
+        );
+      },
     );
   }
 }

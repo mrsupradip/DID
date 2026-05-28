@@ -28,4 +28,14 @@ class FirestoreService {
       "createdAt": DateTime.now(),
     });
   }
+
+  Future<void> updateUser({
+    required String uid,
+    Map<String, dynamic>? data,
+  }) async {
+    await firestore
+        .collection('users')
+        .doc(uid)
+        .set(data ?? {}, SetOptions(merge: true));
+  }
 }

@@ -37,6 +37,15 @@ class FeedScreen extends StatelessWidget {
 
           final posts = snapshot.data!.docs;
 
+          if (posts.isEmpty) {
+            return const Center(
+              child: Text(
+                'No posts yet',
+                style: TextStyle(color: Colors.white),
+              ),
+            );
+          }
+
           return ListView.builder(
             itemCount: posts.length,
 
@@ -65,6 +74,23 @@ class FeedScreen extends StatelessWidget {
                     ),
 
                     const SizedBox(height: 15),
+
+                    if (post.data()["attachmentName"] != null)
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: const Color(0xff111827),
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        child: Text(
+                          '${post["attachmentType"] ?? "file"}: ${post["attachmentName"]}',
+                          style: const TextStyle(color: Colors.greenAccent),
+                        ),
+                      ),
+
+                    if (post.data()["attachmentName"] != null)
+                      const SizedBox(height: 15),
 
                     Row(
                       children: [

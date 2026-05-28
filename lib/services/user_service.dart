@@ -16,4 +16,23 @@ class UserService {
 
     profileImage: "",
   );
+
+  static void updateCurrentUser({
+    required String name,
+    required String email,
+    required String bio,
+    required String github,
+    required List<String> skills,
+    required String profileImage,
+  }) {
+    currentUser = UserModel(
+      id: currentUser.id,
+      name: name,
+      email: email,
+      bio: bio,
+      github: github,
+      skills: skills,
+      profileImage: profileImage,
+    );
+  }
 }

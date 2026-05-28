@@ -4,6 +4,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
 import 'routes/app_routes.dart';
 import 'services/session_service.dart';
+import 'services/profile_service.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 Future<void> main() async {
@@ -31,6 +32,8 @@ Future<void> main() async {
   } else {
     debugPrint('Firebase already initialized (Firebase.apps.isNotEmpty)');
   }
+
+  await ProfileService.loadProfile();
 
   runApp(const DIDApp());
 }
@@ -83,16 +86,37 @@ class _DIDAppState extends State<DIDApp> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      debugShowCheckedModeBanner: false,
+    return ValueListenableBuilder<ThemeMode>(
+      valueListenable: ProfileService.themeNotifier,
+      builder: (context, themeMode, _) {
+        return MaterialApp(
+          debugShowCheckedModeBanner: false,
 
-      title: "D!D",
+          title: "D!D",
 
-      theme: ThemeData(scaffoldBackgroundColor: const Color(0xff101522)),
+          theme: ThemeData.light().copyWith(
+            scaffoldBackgroundColor: const Color(0xffF5F7FB),
+            colorScheme: ColorScheme.fromSeed(
+              seedColor: Colors.greenAccent,
+              brightness: Brightness.light,
+            ),
+          ),
 
-      initialRoute: AppRoutes.splash,
+          darkTheme: ThemeData.dark().copyWith(
+            scaffoldBackgroundColor: const Color(0xff101522),
+            colorScheme: ColorScheme.fromSeed(
+              seedColor: Colors.greenAccent,
+              brightness: Brightness.dark,
+            ),
+          ),
 
-      onGenerateRoute: AppRoutes.onGenerateRoute,
+          themeMode: themeMode,
+
+          initialRoute: AppRoutes.splash,
+
+          onGenerateRoute: AppRoutes.onGenerateRoute,
+        );
+      },
     );
   }
 }

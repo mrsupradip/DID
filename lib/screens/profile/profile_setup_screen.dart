@@ -2,6 +2,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../../services/firestore_service.dart';
+import '../../services/profile_service.dart';
 import '../home/home_screen.dart';
 
 class ProfileSetupScreen extends StatefulWidget {
@@ -106,6 +107,20 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                       skills: skillsController.text.split(","),
                     );
 
+                    await ProfileService.saveProfile(
+                      ProfileData.defaultData().copyWith(
+                        displayName: nameController.text.trim(),
+                        bio: bioController.text.trim(),
+                        githubUsername: githubController.text.trim(),
+                        skills: skillsController.text
+                            .split(",")
+                            .map((skill) => skill.trim())
+                            .where((skill) => skill.isNotEmpty)
+                            .toList(),
+                      ),
+                    );
+
+                    if (!mounted) return;
                     Navigator.pushReplacement(
                       context,
 
@@ -113,9 +128,11 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                     );
                   }
 
-                  setState(() {
-                    loading = false;
-                  });
+                  if (mounted) {
+                    setState(() {
+                      loading = false;
+                    });
+                  }
                 },
 
                 style: ElevatedButton.styleFrom(

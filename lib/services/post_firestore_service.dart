@@ -6,7 +6,9 @@ class PostFirestoreService {
   Future<void> createPost({
     required String uid,
     required String caption,
-    String? imageUrl,
+    String? attachmentName,
+    String? attachmentPath,
+    String? attachmentType,
   }) async {
     final doc = _db.collection('posts').doc();
 
@@ -14,7 +16,9 @@ class PostFirestoreService {
       'id': doc.id,
       'uid': uid,
       'caption': caption,
-      'imageUrl': imageUrl,
+      'attachmentName': attachmentName,
+      'attachmentPath': attachmentPath,
+      'attachmentType': attachmentType,
       'likes': <String>[],
       'createdAt': FieldValue.serverTimestamp(),
     });

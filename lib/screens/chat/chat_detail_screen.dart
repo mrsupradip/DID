@@ -56,11 +56,8 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final mediaQuery = MediaQuery.of(context);
-    final bottomInset =
-        mediaQuery.viewPadding.bottom + mediaQuery.viewInsets.bottom;
-
     return Scaffold(
+      resizeToAvoidBottomInset: true,
       backgroundColor: const Color(0xff101522),
       appBar: AppBar(
         backgroundColor: Colors.transparent,
@@ -95,6 +92,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
       ),
       body: SafeArea(
         top: false,
+        bottom: true,
         child: Column(
           children: [
             Expanded(
@@ -127,7 +125,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                     ),
             ),
             Container(
-              padding: EdgeInsets.fromLTRB(16, 10, 16, 16 + bottomInset),
+              padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
               decoration: const BoxDecoration(
                 color: Color(0xff0B0F1A),
                 border: Border(top: BorderSide(color: Color(0x22FFFFFF))),

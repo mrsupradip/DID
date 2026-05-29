@@ -1,6 +1,7 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../auth/auth_service.dart';
 import '../../routes/app_routes.dart';
@@ -42,7 +43,12 @@ class _LoginScreenState extends State<LoginScreen> {
     if (!mounted) return false;
 
     var checking = false;
-    var status = 'We sent a verification link to $email.';
+    var status = 'We sent a verification email to $email.';
+
+    Future<void> openMailApp() async {
+      final uri = Uri(scheme: 'mailto', path: email);
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    }
 
     final verified = await showDialog<bool>(
       context: context,
@@ -65,7 +71,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
                 setDialogState(
                   () => status =
-                      'Email not verified yet. Open the link and try again.',
+                      'Email not verified yet. Open your inbox, tap the link, then try again.',
                 );
               } finally {
                 if (dialogContext.mounted) {
@@ -83,13 +89,17 @@ class _LoginScreenState extends State<LoginScreen> {
               ),
               actions: [
                 TextButton(
+                  onPressed: checking ? null : openMailApp,
+                  child: const Text('Open email app'),
+                ),
+                TextButton(
                   onPressed: checking
                       ? null
                       : () async {
                           await user.sendEmailVerification();
                           if (dialogContext.mounted) {
                             setDialogState(
-                              () => status = 'Verification email sent again.',
+                              () => status = 'Verification email sent again. Check your inbox for the latest link.',
                             );
                           }
                         },

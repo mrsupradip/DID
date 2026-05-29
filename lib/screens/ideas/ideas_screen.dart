@@ -96,7 +96,7 @@ class _IdeasScreenState extends State<IdeasScreen> {
                         )
                         .toList(),
                     'votedBy': <String>[],
-                    'createdAt': FieldValue.serverTimestamp(),
+                    'createdAt': DateTime.now().toUtc(),
                   });
 
                   if (!sheetContext.mounted) return;

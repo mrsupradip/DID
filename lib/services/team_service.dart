@@ -187,7 +187,7 @@ class TeamService {
       'members': 1,
       'memberIds': [ownerId],
       'ownerId': ownerId,
-      'createdAt': FieldValue.serverTimestamp(),
+      'createdAt': DateTime.now().toUtc(),
     });
   }
 

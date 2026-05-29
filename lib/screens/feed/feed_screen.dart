@@ -7,8 +7,11 @@ class FeedScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final bottomPad = MediaQuery.of(context).padding.bottom;
+
     return Scaffold(
       backgroundColor: const Color(0xff101522),
+      resizeToAvoidBottomInset: true,
       appBar: AppBar(
         backgroundColor: const Color(0xff101522),
         elevation: 0,
@@ -18,9 +21,9 @@ class FeedScreen extends StatelessWidget {
           style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
         ),
       ),
-      body: const SafeArea(
+      body: SafeArea(
         child: SingleChildScrollView(
-          padding: EdgeInsets.fromLTRB(18, 8, 18, 28),
+          padding: EdgeInsets.fromLTRB(18, 8, 18, 28 + bottomPad),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -28,7 +31,7 @@ class FeedScreen extends StatelessWidget {
                 'Latest posts',
                 style: TextStyle(color: Colors.white70, fontSize: 14),
               ),
-              SizedBox(height: 14),
+              const SizedBox(height: 14),
               LiveFeedSection(),
             ],
           ),

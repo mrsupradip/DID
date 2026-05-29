@@ -2,11 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../auth/auth_service.dart';
+
 import '../profile/profile_setup_screen.dart';
 import '../../services/permission_service.dart';
 import '../../services/session_service.dart';
 import '../settings/terms_conditions_screen.dart';
 import '../../services/user_service.dart';
+import '../../services/firestore_service.dart';
 
 class SignupScreen extends StatefulWidget {
   const SignupScreen({super.key});
@@ -19,9 +21,7 @@ class _SignupScreenState extends State<SignupScreen> {
   final AuthService authService = AuthService();
 
   final TextEditingController nameController = TextEditingController();
-
   final TextEditingController emailController = TextEditingController();
-
   final TextEditingController passwordController = TextEditingController();
 
   bool loading = false;
@@ -67,10 +67,7 @@ class _SignupScreenState extends State<SignupScreen> {
                       style: TextStyle(color: Colors.white70),
                     ),
                     const SizedBox(height: 14),
-                    SizedBox(
-                      height: 280,
-                      child: const TermsConditionsScreen(),
-                    ),
+                    SizedBox(height: 280, child: const TermsConditionsScreen()),
                     const SizedBox(height: 14),
                     CheckboxListTile(
                       value: localAccepted,
@@ -109,11 +106,13 @@ class _SignupScreenState extends State<SignupScreen> {
     );
 
     if (result == true) {
+      if (!mounted) return false;
       setState(() {
         acceptedTerms = true;
       });
       return true;
     }
+
     return acceptedTerms;
   }
 
@@ -125,70 +124,153 @@ class _SignupScreenState extends State<SignupScreen> {
     super.dispose();
   }
 
+  Future<void> _ensureUserDocExists({
+    required String uid,
+    required String name,
+    required String email,
+  }) async {
+    final fs = FirestoreService();
+    await fs.updateUser(
+      uid: uid,
+      data: {
+        'uid': uid,
+        'name': name,
+        'email': email,
+        'bio': '',
+        'github': '',
+        'skills': <String>[],
+        'profileImage': '',
+        'createdAt': DateTime.now(),
+      },
+    );
+  }
+
+  Future<void> _handleOauth({
+    required Future<dynamic> Function() signIn,
+
+    required String authProviderName,
+  }) async {
+    FocusScope.of(context).unfocus();
+
+    if (loading) return;
+    setState(() => loading = true);
+
+    try {
+      final user = await signIn();
+      if (!mounted) return;
+
+      if (user == null) {
+        final err =
+            authService.lastError ?? '$authProviderName sign-in failed.';
+
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(err)));
+
+        return;
+      }
+
+      final name = user.displayName ?? 'Developer';
+      final email = user.email ?? '';
+
+      UserService.updateCurrentUser(
+        id: user.uid,
+        name: name,
+        email: email,
+        bio: '',
+        github: '',
+        skills: const [],
+        profileImage: '',
+      );
+
+      await _ensureUserDocExists(uid: user.uid, name: name, email: email);
+      if (!mounted) return;
+
+      await SessionService.updateLastActive();
+      if (!mounted) return;
+
+      await PermissionService.requestOnboardingPermissions();
+      if (!mounted) return;
+
+      await Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => const ProfileSetupScreen()),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => loading = false);
+      }
+    }
+  }
+
+  Widget buildField({
+    required TextEditingController controller,
+    required String hint,
+    required IconData icon,
+    bool hide = false,
+  }) {
+    return Container(
+      decoration: BoxDecoration(
+        color: const Color(0xff232334),
+        borderRadius: BorderRadius.circular(35),
+      ),
+      child: TextField(
+        controller: controller,
+        obscureText: hide,
+        style: const TextStyle(color: Colors.white),
+        decoration: InputDecoration(
+          hintText: hint,
+          hintStyle: const TextStyle(color: Colors.grey),
+          suffixIcon: Icon(icon, color: Colors.grey),
+          border: InputBorder.none,
+          contentPadding: const EdgeInsets.all(25),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    Color accent = const Color(0xffC08A68);
+    const accent = Color(0xffC08A68);
 
     return Scaffold(
-      backgroundColor: const Color(0xff0B0B1D),
-
+      backgroundColor: const Color.fromARGB(255, 34, 34, 93),
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 30),
-
           child: SingleChildScrollView(
             child: Column(
               children: [
                 const SizedBox(height: 50),
-
                 Text(
-                  "CREATE ACCOUNT",
-
+                  'CREATE ACCOUNT',
                   style: GoogleFonts.poppins(
                     color: accent,
-
                     fontSize: 28,
-
                     fontWeight: FontWeight.bold,
-
                     letterSpacing: 2,
                   ),
                 ),
-
                 const SizedBox(height: 60),
-
                 buildField(
                   controller: nameController,
-
-                  hint: "Name",
-
+                  hint: 'Name',
                   icon: Icons.person,
                 ),
-
                 const SizedBox(height: 25),
-
                 buildField(
                   controller: emailController,
-
-                  hint: "Email",
-
+                  hint: 'Email',
                   icon: Icons.alternate_email,
                 ),
-
                 const SizedBox(height: 25),
-
                 buildField(
                   controller: passwordController,
-
-                  hint: "Password",
-
+                  hint: 'Password',
                   icon: Icons.lock,
-
                   hide: true,
                 ),
-
                 const SizedBox(height: 50),
-
                 CheckboxListTile(
                   value: acceptedTerms,
                   onChanged: (value) {
@@ -213,20 +295,16 @@ class _SignupScreenState extends State<SignupScreen> {
                     child: Text(
                       'Read the app rules and privacy policy',
                       style: TextStyle(
-                        color: accent,
+                        color: const Color.fromARGB(255, 160, 228, 196),
                         decoration: TextDecoration.underline,
                       ),
                     ),
                   ),
                 ),
-
                 const SizedBox(height: 12),
-
                 SizedBox(
                   width: 250,
-
                   height: 55,
-
                   child: ElevatedButton(
                     onPressed: () async {
                       FocusScope.of(context).unfocus();
@@ -257,23 +335,19 @@ class _SignupScreenState extends State<SignupScreen> {
                             ),
                           );
                         }
-
                         if (!accepted) return;
                       }
 
-                      setState(() {
-                        loading = true;
-                      });
+                      if (!mounted) return;
+                      setState(() => loading = true);
 
                       final user = await authService.signUp(
                         email: email,
-
                         password: password,
                       );
 
-                      setState(() {
-                        loading = false;
-                      });
+                      if (!mounted) return;
+                      setState(() => loading = false);
 
                       if (user != null) {
                         UserService.updateCurrentUser(
@@ -285,78 +359,76 @@ class _SignupScreenState extends State<SignupScreen> {
                           skills: const [],
                           profileImage: '',
                         );
+
                         await SessionService.updateLastActive();
                         await PermissionService.requestOnboardingPermissions();
-                        if (!context.mounted) return;
-                        Navigator.pushReplacement(
-                          context,
 
+                        if (!mounted) return;
+                        Navigator.pushReplacement(
+                          this.context,
                           MaterialPageRoute(
                             builder: (_) => const ProfileSetupScreen(),
                           ),
                         );
                       } else {
-                        if (!context.mounted) return;
+                        if (!mounted) return;
                         final err =
                             authService.lastError ??
                             'Sign up failed. Check details or network.';
-                        ScaffoldMessenger.of(
-                          context,
-                        ).showSnackBar(SnackBar(content: Text(err)));
+                        messenger.showSnackBar(SnackBar(content: Text(err)));
                       }
                     },
-
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.greenAccent,
-
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(30),
                       ),
                     ),
-
                     child: loading
                         ? const CircularProgressIndicator(color: Colors.black)
                         : const Text(
-                            "SIGN UP",
-
+                            'SIGN UP',
                             style: TextStyle(
                               color: Colors.black,
-
                               fontSize: 18,
-
                               fontWeight: FontWeight.bold,
                             ),
                           ),
                   ),
                 ),
-
                 const SizedBox(height: 50),
-
                 Text(
-                  "SIGN IN WITH",
-
+                  'SIGN IN WITH',
                   style: GoogleFonts.poppins(
                     color: Colors.grey,
-
                     letterSpacing: 1,
                   ),
                 ),
-
                 const SizedBox(height: 30),
-
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
-
                   children: [
-                    social(Icons.facebook),
-
-                    const SizedBox(width: 35),
-
-                    social(Icons.g_mobiledata),
-
-                    const SizedBox(width: 35),
-
-                    social(Icons.apple),
+                    _SocialButton(
+                      icon: Icons.g_mobiledata,
+                      label: 'Google',
+                      onPressed: loading
+                          ? null
+                          : () => _handleOauth(
+                              authProviderName: 'Google',
+                              signIn: authService.signInWithGoogle,
+                            ),
+                    ),
+                    const SizedBox(width: 18),
+                    _SocialButton(
+                      icon: Icons.code,
+                      label: 'GitHub',
+                      onPressed: loading
+                          ? null
+                          : () => _handleOauth(
+                              authProviderName: 'GitHub',
+                              signIn: authService.signInWithGitHub,
+                            ),
+                    ),
                   ],
                 ),
               ],
@@ -366,46 +438,36 @@ class _SignupScreenState extends State<SignupScreen> {
       ),
     );
   }
+}
 
-  Widget buildField({
-    required TextEditingController controller,
+class _SocialButton extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final VoidCallback? onPressed;
 
-    required String hint,
+  const _SocialButton({
+    required this.icon,
+    required this.label,
+    required this.onPressed,
+  });
 
-    required IconData icon,
-
-    bool hide = false,
-  }) {
-    return Container(
-      decoration: BoxDecoration(
-        color: const Color(0xff232334),
-
-        borderRadius: BorderRadius.circular(35),
-      ),
-
-      child: TextField(
-        controller: controller,
-
-        obscureText: hide,
-
-        style: const TextStyle(color: Colors.white),
-
-        decoration: InputDecoration(
-          hintText: hint,
-
-          hintStyle: const TextStyle(color: Colors.grey),
-
-          suffixIcon: Icon(icon, color: Colors.grey),
-
-          border: InputBorder.none,
-
-          contentPadding: const EdgeInsets.all(25),
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 72,
+      height: 72,
+      child: ElevatedButton.icon(
+        onPressed: onPressed,
+        icon: Icon(icon, size: 34),
+        label: Text(label, style: const TextStyle(fontSize: 10)),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Colors.white10,
+          foregroundColor: Colors.white70,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
         ),
       ),
     );
-  }
-
-  Widget social(IconData icon) {
-    return Icon(icon, size: 42, color: Colors.white70);
   }
 }

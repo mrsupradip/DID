@@ -10,6 +10,7 @@ import 'package:http/http.dart' as http;
 
 import '../../models/story_model.dart';
 import '../../services/profile_service.dart';
+import '../../services/social_service.dart';
 import '../../services/story_service.dart';
 import '../../utils/image_source.dart';
 import '../chat/chat_screen.dart';
@@ -41,6 +42,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xff101522),
+      resizeToAvoidBottomInset: true,
       body: IndexedStack(index: selectedIndex, children: pages),
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: selectedIndex,
@@ -219,6 +221,7 @@ class _HomePageState extends State<HomePage>
 
   Future<void> _openCreateStorySheet() async {
     final captionController = TextEditingController();
+    final rootMessenger = ScaffoldMessenger.of(context);
     String? selectedImagePath;
     String? selectedImageName;
 
@@ -232,11 +235,11 @@ class _HomePageState extends State<HomePage>
       ),
       builder: (sheetContext) {
         bool uploading = false;
+        bool closing = false;
 
         Future<void> pickImage(
           void Function(void Function()) setSheetState,
         ) async {
-          final messenger = ScaffoldMessenger.of(sheetContext);
           final result = await FilePicker.pickFiles(
             allowMultiple: false,
             type: FileType.image,
@@ -250,7 +253,7 @@ class _HomePageState extends State<HomePage>
           final file = result.files.single;
           final path = file.path;
           if (path == null || path.isEmpty) {
-            messenger.showSnackBar(
+            rootMessenger.showSnackBar(
               const SnackBar(content: Text('Unable to read selected image')),
             );
             return;
@@ -265,13 +268,13 @@ class _HomePageState extends State<HomePage>
         Future<void> submitStory(
           void Function(void Function()) setSheetState,
         ) async {
-          if (uploading) return;
+          if (uploading || closing) return;
 
-          final messenger = ScaffoldMessenger.of(sheetContext);
           final navigator = Navigator.of(sheetContext);
           final user = FirebaseAuth.instance.currentUser;
           if (user == null) {
-            messenger.showSnackBar(
+            if (!sheetContext.mounted) return;
+            rootMessenger.showSnackBar(
               const SnackBar(content: Text('Login required to create a story')),
             );
             return;
@@ -281,16 +284,15 @@ class _HomePageState extends State<HomePage>
           if (imagePath == null ||
               imagePath.isEmpty ||
               !File(imagePath).existsSync()) {
-            messenger.showSnackBar(
+            if (!sheetContext.mounted) return;
+            rootMessenger.showSnackBar(
               const SnackBar(content: Text('Choose a valid story image')),
             );
             return;
           }
 
           if (!sheetContext.mounted) return;
-          setSheetState(() {
-            uploading = true;
-          });
+          setSheetState(() => uploading = true);
 
           try {
             final currentProfile = profile ?? ProfileData.defaultData();
@@ -302,22 +304,26 @@ class _HomePageState extends State<HomePage>
               caption: captionController.text.trim(),
             );
 
-            if (!mounted) return;
+            if (!sheetContext.mounted) return;
+
+            closing = true;
             navigator.pop();
-            messenger.showSnackBar(
+            if (mounted) {
+              setState(() => _storyCutoff = DateTime.now().toUtc());
+            }
+            rootMessenger.showSnackBar(
               const SnackBar(content: Text('Story posted')),
             );
           } catch (error) {
             debugPrint('Story upload failed: $error');
             if (!sheetContext.mounted) return;
-            messenger.showSnackBar(
+            rootMessenger.showSnackBar(
               SnackBar(content: Text('Failed to upload story: $error')),
             );
           } finally {
-            if (sheetContext.mounted) {
-              setSheetState(() {
-                uploading = false;
-              });
+            // If we already started closing, don't try to mutate UI.
+            if (sheetContext.mounted && !closing) {
+              setSheetState(() => uploading = false);
             }
           }
         }
@@ -434,8 +440,11 @@ class _HomePageState extends State<HomePage>
     final currentProfile = profile ?? ProfileData.defaultData();
 
     return SafeArea(
+      bottom: false,
       child: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(18, 14, 18, 28),
+        // Avoid adding extra constant bottom padding; the parent Scaffold
+        // already reserves space for the bottom navigation bar.
+        padding: const EdgeInsets.fromLTRB(18, 14, 18, 14),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -484,6 +493,31 @@ class _HomePageState extends State<HomePage>
                     );
                   },
                   icon: const Icon(Icons.create_rounded, color: Colors.white),
+                ),
+                IconButton(
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const SavedPostsScreen(),
+                      ),
+                    );
+                  },
+                  icon: const Icon(Icons.bookmark_border, color: Colors.white),
+                ),
+                IconButton(
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const AppNotificationsScreen(),
+                      ),
+                    );
+                  },
+                  icon: const Icon(
+                    Icons.notifications_none,
+                    color: Colors.white,
+                  ),
                 ),
               ],
             ),
@@ -690,6 +724,232 @@ class LiveFeedSection extends StatelessWidget {
   }
 }
 
+class SavedPostsScreen extends StatelessWidget {
+  const SavedPostsScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+
+    return Scaffold(
+      backgroundColor: const Color(0xff101522),
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        title: const Text('Saved Posts'),
+      ),
+      body: SafeArea(
+        child: uid == null
+            ? const Center(
+                child: Text(
+                  'Login required',
+                  style: TextStyle(color: Colors.white70),
+                ),
+              )
+            : StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+                stream: FirebaseFirestore.instance
+                    .collection('posts')
+                    .where('saves', arrayContains: uid)
+                    .snapshots(),
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
+
+                  if (snapshot.hasError) {
+                    return const Center(
+                      child: Text(
+                        'Saved posts are unavailable right now.',
+                        style: TextStyle(color: Colors.white70),
+                      ),
+                    );
+                  }
+
+                  final posts = [...?snapshot.data?.docs];
+                  posts.sort((left, right) {
+                    final leftCreated = left.data()['createdAt'];
+                    final rightCreated = right.data()['createdAt'];
+                    final leftTime = leftCreated is Timestamp
+                        ? leftCreated.toDate()
+                        : DateTime.fromMillisecondsSinceEpoch(0);
+                    final rightTime = rightCreated is Timestamp
+                        ? rightCreated.toDate()
+                        : DateTime.fromMillisecondsSinceEpoch(0);
+                    return rightTime.compareTo(leftTime);
+                  });
+
+                  if (posts.isEmpty) {
+                    return const Center(
+                      child: Padding(
+                        padding: EdgeInsets.all(24),
+                        child: Text(
+                          'No saved posts yet.',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(color: Colors.white70),
+                        ),
+                      ),
+                    );
+                  }
+
+                  return ListView.separated(
+                    padding: const EdgeInsets.fromLTRB(18, 12, 18, 24),
+                    itemCount: posts.length,
+                    separatorBuilder: (_, _) => const SizedBox(height: 14),
+                    itemBuilder: (context, index) {
+                      return Column(
+                        children: [
+                          _XPostCard(doc: posts[index]),
+                          const SizedBox(height: 8),
+                          SizedBox(
+                            width: double.infinity,
+                            child: OutlinedButton.icon(
+                              onPressed: () async {
+                                await posts[index].reference.update({
+                                  'saves': FieldValue.arrayRemove([uid]),
+                                });
+                              },
+                              icon: const Icon(Icons.bookmark_remove_outlined),
+                              label: const Text('Remove from saved'),
+                            ),
+                          ),
+                        ],
+                      );
+                    },
+                  );
+                },
+              ),
+      ),
+    );
+  }
+}
+
+class AppNotificationsScreen extends StatelessWidget {
+  const AppNotificationsScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final service = SocialService();
+
+    return Scaffold(
+      backgroundColor: const Color(0xff101522),
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        title: const Text('Notifications'),
+      ),
+      body: SafeArea(
+        child: StreamBuilder<List<QueryDocumentSnapshot<Map<String, dynamic>>>>(
+          stream: service.streamNotifications(),
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Center(child: CircularProgressIndicator());
+            }
+
+            if (snapshot.hasError) {
+              return const Center(
+                child: Text(
+                  'Notifications are unavailable right now.',
+                  style: TextStyle(color: Colors.white70),
+                ),
+              );
+            }
+
+            final notifications = snapshot.data ?? [];
+            if (notifications.isEmpty) {
+              return const Center(
+                child: Text(
+                  'No notifications yet.',
+                  style: TextStyle(color: Colors.white70),
+                ),
+              );
+            }
+
+            return ListView.separated(
+              padding: const EdgeInsets.fromLTRB(18, 12, 18, 24),
+              itemCount: notifications.length,
+              separatorBuilder: (_, _) => const SizedBox(height: 10),
+              itemBuilder: (context, index) {
+                final doc = notifications[index];
+                final data = doc.data();
+                final type = (data['type'] ?? '').toString();
+                final title = (data['title'] ?? 'Notification').toString();
+                final body = (data['body'] ?? '').toString();
+                final requestId = (data['requestId'] ?? '').toString();
+
+                return Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: const Color(0xff1B2235),
+                    borderRadius: BorderRadius.circular(18),
+                  ),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Icon(
+                        _notificationIcon(type),
+                        color: Colors.greenAccent,
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              title,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            if (body.isNotEmpty) ...[
+                              const SizedBox(height: 4),
+                              Text(
+                                body,
+                                style: const TextStyle(color: Colors.white70),
+                              ),
+                            ],
+                            if (type == 'friend_request' &&
+                                requestId.isNotEmpty) ...[
+                              const SizedBox(height: 10),
+                              ElevatedButton(
+                                onPressed: () async {
+                                  await service.acceptFriendRequest(requestId);
+                                  await doc.reference.update({'read': true});
+                                },
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.greenAccent,
+                                  foregroundColor: Colors.black,
+                                ),
+                                child: const Text('Accept request'),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  IconData _notificationIcon(String type) {
+    switch (type) {
+      case 'friend_request':
+      case 'friend_accept':
+        return Icons.person_add_alt_1;
+      case 'message':
+        return Icons.chat_bubble_outline;
+      case 'team_join':
+        return Icons.groups_outlined;
+      default:
+        return Icons.notifications_none;
+    }
+  }
+}
+
 class _XPostCard extends StatefulWidget {
   final QueryDocumentSnapshot<Map<String, dynamic>> doc;
 
@@ -711,22 +971,51 @@ class _XPostCardState extends State<_XPostCard> {
   Future<void> _toggleArrayField(String field) async {
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) return;
-
-    final data = widget.doc.data();
-    final existing = (data[field] as List<dynamic>? ?? <dynamic>[])
-        .whereType<String>()
-        .toList();
-
-    final ref = widget.doc.reference;
-    if (existing.contains(uid)) {
-      await ref.update({
-        field: FieldValue.arrayRemove([uid]),
-      });
-    } else {
-      await ref.update({
-        field: FieldValue.arrayUnion([uid]),
-      });
+    if (field == 'likes' || field == 'dislikes') {
+      await _toggleReaction(field, uid);
+      return;
     }
+
+    await FirebaseFirestore.instance.runTransaction((txn) async {
+      final snapshot = await txn.get(widget.doc.reference);
+      if (!snapshot.exists) return;
+
+      final data = snapshot.data() ?? <String, dynamic>{};
+      final existing = (data[field] as List<dynamic>? ?? <dynamic>[])
+          .map((e) => e.toString())
+          .toList();
+
+      txn.update(widget.doc.reference, {
+        field: existing.contains(uid)
+            ? FieldValue.arrayRemove([uid])
+            : FieldValue.arrayUnion([uid]),
+      });
+    });
+  }
+
+  Future<void> _toggleReaction(String field, String uid) async {
+    final opposite = field == 'likes' ? 'dislikes' : 'likes';
+
+    await FirebaseFirestore.instance.runTransaction((txn) async {
+      final snapshot = await txn.get(widget.doc.reference);
+      if (!snapshot.exists) return;
+
+      final data = snapshot.data() ?? <String, dynamic>{};
+      final existing = (data[field] as List<dynamic>? ?? <dynamic>[])
+          .map((e) => e.toString())
+          .toList();
+
+      if (existing.contains(uid)) {
+        txn.update(widget.doc.reference, {
+          field: FieldValue.arrayRemove([uid]),
+        });
+      } else {
+        txn.update(widget.doc.reference, {
+          field: FieldValue.arrayUnion([uid]),
+          opposite: FieldValue.arrayRemove([uid]),
+        });
+      }
+    });
   }
 
   Future<void> _addComment() async {
@@ -778,7 +1067,10 @@ class _XPostCardState extends State<_XPostCard> {
         'createdAt': DateTime.now().toUtc().toIso8601String(),
       });
 
-      txn.update(widget.doc.reference, {'comments': comments});
+      txn.update(widget.doc.reference, {
+        'comments': comments,
+        'commentUids': FieldValue.arrayUnion([uid]),
+      });
     });
   }
 
@@ -793,13 +1085,13 @@ class _XPostCardState extends State<_XPostCard> {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
-      builder: (context) {
+      builder: (sheetContext) {
         return Padding(
           padding: EdgeInsets.only(
             left: 18,
             right: 18,
             top: 18,
-            bottom: MediaQuery.of(context).viewInsets.bottom + 18,
+            bottom: MediaQuery.of(sheetContext).viewInsets.bottom + 18,
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -858,10 +1150,10 @@ class _XPostCardState extends State<_XPostCard> {
                 width: double.infinity,
                 child: ElevatedButton(
                   onPressed: () async {
+                    Navigator.pop(sheetContext);
+                    await Future<void>.delayed(Duration.zero);
+                    if (!mounted) return;
                     await _addComment();
-                    if (context.mounted) {
-                      Navigator.pop(context);
-                    }
                   },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.greenAccent,
@@ -1053,21 +1345,23 @@ class _XPostCardState extends State<_XPostCard> {
                 label: 'Comment $comments',
                 onTap: _openCommentsSheet,
               ),
-              _ActionButton(
-                icon: Icons.repeat_rounded,
-                label: 'Share',
-                onTap: () => _toggleArrayField('shares'),
-              ),
-              _ActionButton(
-                icon: Icons.thumb_down_alt_outlined,
-                label: 'Dislike $dislikes',
-                onTap: () => _toggleArrayField('dislikes'),
-              ),
-              _ActionButton(
-                icon: Icons.bookmark_border,
-                label: 'Save $saves',
-                onTap: () => _toggleArrayField('saves'),
-              ),
+              if (!isOwner) ...[
+                _ActionButton(
+                  icon: Icons.repeat_rounded,
+                  label: 'Share',
+                  onTap: () => _toggleArrayField('shares'),
+                ),
+                _ActionButton(
+                  icon: Icons.thumb_down_alt_outlined,
+                  label: 'Dislike $dislikes',
+                  onTap: () => _toggleArrayField('dislikes'),
+                ),
+                _ActionButton(
+                  icon: Icons.bookmark_border,
+                  label: 'Save $saves',
+                  onTap: () => _toggleArrayField('saves'),
+                ),
+              ],
             ],
           ),
           if (commentsList.isNotEmpty) ...[

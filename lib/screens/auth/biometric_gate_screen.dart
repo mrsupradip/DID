@@ -69,8 +69,16 @@ class _BiometricGateScreenState extends State<BiometricGateScreen> {
       return;
     }
 
+    final hasPasswordProvider = user.providerData.any(
+      (provider) => provider.providerId == EmailAuthProvider.PROVIDER_ID,
+    );
+
     if (!widget.enrollMode && _biometricSupported && _biometricEnabled) {
       await _authenticateWithFingerprint();
+    } else if (!widget.enrollMode && !hasPasswordProvider) {
+      await SessionService.updateLastActive();
+      if (!mounted) return;
+      _goToHome();
     }
   }
 

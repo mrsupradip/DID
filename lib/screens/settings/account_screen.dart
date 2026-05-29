@@ -1,8 +1,8 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:local_auth/local_auth.dart';
 
+import '../../services/account_deletion_service.dart';
 import '../../services/firestore_service.dart';
 import '../../services/profile_service.dart';
 import '../../services/session_service.dart';
@@ -276,7 +276,7 @@ class _AccountScreenState extends State<AccountScreen> {
           mainAxisSize: MainAxisSize.min,
           children: [
             const Text(
-              'This removes your account and your user profile data.',
+              'This removes your account, posts, stories, team memberships, saved post links, notifications, friend requests, and chat messages.',
               style: TextStyle(color: Colors.white70),
             ),
             const SizedBox(height: 12),
@@ -322,40 +322,8 @@ class _AccountScreenState extends State<AccountScreen> {
       );
       await user.reauthenticateWithCredential(credential);
 
-      final db = FirebaseFirestore.instance;
       final uid = user.uid;
-
-      final batch = db.batch();
-      final userDoc = db.collection('users').doc(uid);
-      batch.delete(userDoc);
-
-      final posts = await db
-          .collection('posts')
-          .where('uid', isEqualTo: uid)
-          .get();
-      for (final doc in posts.docs) {
-        batch.delete(doc.reference);
-      }
-
-      final quizPosts = await db
-          .collection('quiz_posts')
-          .where('uid', isEqualTo: uid)
-          .get();
-      for (final doc in quizPosts.docs) {
-        batch.delete(doc.reference);
-      }
-
-      final ownTeams = await db
-          .collection('teams')
-          .where('ownerId', isEqualTo: uid)
-          .get();
-      for (final doc in ownTeams.docs) {
-        batch.delete(doc.reference);
-      }
-
-      await batch.commit();
-      await user.delete();
-      await FirebaseAuth.instance.signOut();
+      await AccountDeletionService().deleteAccountCompletely(uid: uid);
       await SessionService.clearLastActive();
       await SessionService.clearLastEmail();
 

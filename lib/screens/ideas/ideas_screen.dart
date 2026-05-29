@@ -117,9 +117,9 @@ class _IdeasScreenState extends State<IdeasScreen> {
         'createdAt': FieldValue.serverTimestamp(),
       });
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Quiz post created')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Quiz post created')));
     } catch (error) {
       debugPrint('Create quiz post failed: $error');
       if (!mounted) return;
@@ -183,31 +183,50 @@ class _IdeasScreenState extends State<IdeasScreen> {
         'createdAt': DateTime.now().toUtc().toIso8601String(),
       });
 
-      txn.update(ref, {'comments': comments});
+      txn.update(ref, {
+        'comments': comments,
+        'commentUids': FieldValue.arrayUnion([uid]),
+      });
     });
   }
 
   Future<void> _toggleArrayField({
     required DocumentReference<Map<String, dynamic>> ref,
-    required Map<String, dynamic> data,
     required String field,
   }) async {
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) return;
 
-    final existing = (data[field] as List<dynamic>? ?? <dynamic>[])
-        .map((e) => e.toString())
-        .toList();
+    await FirebaseFirestore.instance.runTransaction((txn) async {
+      final snapshot = await txn.get(ref);
+      if (!snapshot.exists) return;
 
-    if (existing.contains(uid)) {
-      await ref.update({
-        field: FieldValue.arrayRemove([uid]),
+      final latest = snapshot.data() ?? <String, dynamic>{};
+      final existing = (latest[field] as List<dynamic>? ?? <dynamic>[])
+          .map((e) => e.toString())
+          .toList();
+
+      if (field == 'likes' || field == 'dislikes') {
+        final opposite = field == 'likes' ? 'dislikes' : 'likes';
+        if (existing.contains(uid)) {
+          txn.update(ref, {
+            field: FieldValue.arrayRemove([uid]),
+          });
+        } else {
+          txn.update(ref, {
+            field: FieldValue.arrayUnion([uid]),
+            opposite: FieldValue.arrayRemove([uid]),
+          });
+        }
+        return;
+      }
+
+      txn.update(ref, {
+        field: existing.contains(uid)
+            ? FieldValue.arrayRemove([uid])
+            : FieldValue.arrayUnion([uid]),
       });
-    } else {
-      await ref.update({
-        field: FieldValue.arrayUnion([uid]),
-      });
-    }
+    });
   }
 
   @override
@@ -295,17 +314,14 @@ class _IdeasScreenState extends State<IdeasScreen> {
                           comments: comments,
                           onVote: () => _toggleArrayField(
                             ref: doc.reference,
-                            data: data,
                             field: 'votes',
                           ),
                           onLike: () => _toggleArrayField(
                             ref: doc.reference,
-                            data: data,
                             field: 'likes',
                           ),
                           onDislike: () => _toggleArrayField(
                             ref: doc.reference,
-                            data: data,
                             field: 'dislikes',
                           ),
                           onComment: () => _addComment(doc.reference),

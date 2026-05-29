@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import 'chat_detail_screen.dart';
 import '../../services/chat_service.dart';
+import '../../services/social_service.dart';
 
 class ChatScreen extends StatefulWidget {
   const ChatScreen({super.key});
@@ -12,45 +13,90 @@ class ChatScreen extends StatefulWidget {
 }
 
 class _ChatScreenState extends State<ChatScreen> {
+  final SocialService _socialService = SocialService();
   String query = '';
 
   Future<void> _showAddFriendDialog() async {
     final controller = TextEditingController();
+    final messenger = ScaffoldMessenger.of(context);
+    var adding = false;
 
     await showDialog<void>(
       context: context,
       builder: (dialogContext) {
-        return AlertDialog(
-          backgroundColor: const Color(0xff101522),
-          title: const Text('Add friend'),
-          content: TextField(
-            controller: controller,
-            style: const TextStyle(color: Colors.white),
-            decoration: const InputDecoration(
-              hintText: 'GitHub id or D!D user id',
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(dialogContext),
-              child: const Text('Cancel'),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                ChatService.addFriend(controller.text);
-                Navigator.pop(dialogContext);
-                if (mounted) {
-                  setState(() {});
-                }
-              },
-              child: const Text('Add'),
-            ),
-          ],
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              backgroundColor: const Color(0xff101522),
+              title: const Text('Add friend'),
+              content: TextField(
+                controller: controller,
+                enabled: !adding,
+                autofocus: true,
+                style: const TextStyle(color: Colors.white),
+                decoration: const InputDecoration(
+                  hintText: 'GitHub id or D!D user id',
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: adding
+                      ? null
+                      : () => Navigator.pop(dialogContext, false),
+                  child: const Text('Cancel'),
+                ),
+                ElevatedButton(
+                  onPressed: adding
+                      ? null
+                      : () async {
+                          final value = controller.text.trim();
+                          if (value.isEmpty) {
+                            messenger.showSnackBar(
+                              const SnackBar(
+                                content: Text('Enter a GitHub id or user id'),
+                              ),
+                            );
+                            return;
+                          }
+
+                          setDialogState(() => adding = true);
+                          try {
+                            final user = await _socialService.findUserById(
+                              value,
+                            );
+                            final message = await _socialService
+                                .sendFriendRequest(user);
+                            if (!mounted || !dialogContext.mounted) return;
+                            Navigator.pop(dialogContext, true);
+                            messenger.showSnackBar(
+                              SnackBar(content: Text(message)),
+                            );
+                            setState(() {});
+                          } catch (error) {
+                            if (!mounted || !dialogContext.mounted) return;
+                            setDialogState(() => adding = false);
+                            messenger.showSnackBar(
+                              SnackBar(content: Text(error.toString())),
+                            );
+                          }
+                        },
+                  child: adding
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Text('Add'),
+                ),
+              ],
+            );
+          },
         );
       },
     );
 
     controller.dispose();
+    if (mounted) setState(() {});
   }
 
   @override
@@ -104,36 +150,75 @@ class _ChatScreenState extends State<ChatScreen> {
               ),
               const SizedBox(height: 18),
               Expanded(
-                child: friends.isEmpty
-                    ? const _EmptyChatState()
-                    : ListView(
-                        children: [
-                          const Text(
-                            'Friends',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                            ),
+                child: StreamBuilder<List<ChatContact>>(
+                  stream: _socialService.streamFriends(),
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState == ConnectionState.waiting) {
+                      return const Center(child: CircularProgressIndicator());
+                    }
+
+                    if (snapshot.hasError) {
+                      return const Center(
+                        child: Text(
+                          'Chats are unavailable right now.',
+                          style: TextStyle(color: Colors.white70),
+                        ),
+                      );
+                    }
+
+                    final firestoreFriends = snapshot.data ?? <ChatContact>[];
+                    final merged = <String, ChatContact>{};
+                    for (final friend in [...firestoreFriends, ...friends]) {
+                      merged[friend.id] = friend;
+                    }
+
+                    final visibleFriends = merged.values.where((conversation) {
+                      if (normalized.isEmpty) return true;
+                      return conversation.name.toLowerCase().contains(
+                            normalized,
+                          ) ||
+                          conversation.role.toLowerCase().contains(
+                            normalized,
+                          ) ||
+                          conversation.lastMessage.toLowerCase().contains(
+                            normalized,
+                          );
+                    }).toList();
+
+                    if (visibleFriends.isEmpty) {
+                      return const _EmptyChatState();
+                    }
+
+                    return ListView(
+                      children: [
+                        const Text(
+                          'Friends',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
                           ),
-                          const SizedBox(height: 12),
-                          ...friends.map(
-                            (conversation) => ChatTile(
-                              conversation: conversation,
-                              onTap: () {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (_) => ChatDetailScreen(
-                                      conversation: conversation,
-                                    ),
+                        ),
+                        const SizedBox(height: 12),
+                        ...visibleFriends.map(
+                          (conversation) => ChatTile(
+                            conversation: conversation,
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => ChatDetailScreen(
+                                    conversation: conversation,
                                   ),
-                                );
-                              },
-                            ),
+                                ),
+                              );
+                            },
                           ),
-                        ],
-                      ),
+                        ),
+                      ],
+                    );
+                  },
+                ),
               ),
             ],
           ),

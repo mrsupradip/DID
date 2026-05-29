@@ -28,112 +28,152 @@ class MyRoomScreen extends StatelessWidget {
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       builder: (sheetContext) {
-        return Padding(
-          padding: EdgeInsets.only(
-            left: 20,
-            right: 20,
-            top: 20,
-            bottom: MediaQuery.of(sheetContext).viewInsets.bottom + 20 + 16,
-          ),
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Create Team',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 26,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 18),
-                _SheetField(controller: teamNameController, hint: 'Team name'),
-                const SizedBox(height: 12),
-                _SheetField(
-                  controller: projectNameController,
-                  hint: 'Project name',
-                ),
-                const SizedBox(height: 12),
-                _SheetField(
-                  controller: memberTypeController,
-                  hint: 'What type of member is required',
-                ),
-                const SizedBox(height: 12),
-                _SheetField(
-                  controller: adminNameController,
-                  hint: 'Team admin user name',
-                ),
-                const SizedBox(height: 12),
-                _SheetField(
-                  controller: descriptionController,
-                  hint: 'Team description',
-                  maxLines: 3,
-                ),
-                const SizedBox(height: 12),
-                _SheetField(
-                  controller: skillsController,
-                  hint: 'Required skills, comma separated',
-                ),
-                const SizedBox(height: 18),
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    onPressed: () async {
-                      final teamName = teamNameController.text.trim();
-                      final projectName = projectNameController.text.trim();
-                      final memberType = memberTypeController.text.trim();
-                      final adminName = adminNameController.text.trim();
-                      final description = descriptionController.text.trim();
-                      final skills = skillsController.text
-                          .split(',')
-                          .map((skill) => skill.trim())
-                          .where((skill) => skill.isNotEmpty)
-                          .toList();
-
-                      if (teamName.isEmpty ||
-                          projectName.isEmpty ||
-                          memberType.isEmpty ||
-                          adminName.isEmpty ||
-                          description.isEmpty ||
-                          skills.isEmpty) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text(
-                              'Fill all team fields before posting',
-                            ),
-                          ),
-                        );
-                        return;
-                      }
-
-                      await TeamService.createTeam(
-                        title: teamName,
-                        projectName: projectName,
-                        requiredMemberType: memberType,
-                        adminUserName: adminName,
-                        description: description,
-                        requiredSkills: skills,
-                        ownerId: ownerId,
-                      );
-
-                      if (!context.mounted || !sheetContext.mounted) return;
-                      Navigator.pop(sheetContext);
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.greenAccent,
-                      padding: const EdgeInsets.all(16),
-                    ),
-                    child: const Text(
+        var creating = false;
+        return StatefulBuilder(
+          builder: (context, setSheetState) {
+            return Padding(
+              padding: EdgeInsets.only(
+                left: 20,
+                right: 20,
+                top: 20,
+                bottom: MediaQuery.of(sheetContext).viewInsets.bottom + 36,
+              ),
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
                       'Create Team',
-                      style: TextStyle(color: Colors.black),
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 26,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
-                  ),
+                    const SizedBox(height: 18),
+                    _SheetField(
+                      controller: teamNameController,
+                      hint: 'Team name',
+                    ),
+                    const SizedBox(height: 12),
+                    _SheetField(
+                      controller: projectNameController,
+                      hint: 'Project name',
+                    ),
+                    const SizedBox(height: 12),
+                    _SheetField(
+                      controller: memberTypeController,
+                      hint: 'What type of member is required',
+                    ),
+                    const SizedBox(height: 12),
+                    _SheetField(
+                      controller: adminNameController,
+                      hint: 'Team admin user name',
+                    ),
+                    const SizedBox(height: 12),
+                    _SheetField(
+                      controller: descriptionController,
+                      hint: 'Team description',
+                      maxLines: 3,
+                    ),
+                    const SizedBox(height: 12),
+                    _SheetField(
+                      controller: skillsController,
+                      hint: 'Required skills, comma separated',
+                    ),
+                    const SizedBox(height: 18),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: creating
+                            ? null
+                            : () async {
+                                final teamName = teamNameController.text.trim();
+                                final projectName = projectNameController.text
+                                    .trim();
+                                final memberType = memberTypeController.text
+                                    .trim();
+                                final adminName = adminNameController.text
+                                    .trim();
+                                final description = descriptionController.text
+                                    .trim();
+                                final skills = skillsController.text
+                                    .split(',')
+                                    .map((skill) => skill.trim())
+                                    .where((skill) => skill.isNotEmpty)
+                                    .toList();
+
+                                if (teamName.isEmpty ||
+                                    projectName.isEmpty ||
+                                    memberType.isEmpty ||
+                                    adminName.isEmpty ||
+                                    description.isEmpty ||
+                                    skills.isEmpty) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text(
+                                        'Fill all team fields before posting',
+                                      ),
+                                    ),
+                                  );
+                                  return;
+                                }
+
+                                setSheetState(() => creating = true);
+                                try {
+                                  await TeamService.createTeam(
+                                    title: teamName,
+                                    projectName: projectName,
+                                    requiredMemberType: memberType,
+                                    adminUserName: adminName,
+                                    description: description,
+                                    requiredSkills: skills,
+                                    ownerId: ownerId,
+                                  );
+
+                                  if (!sheetContext.mounted) return;
+                                  Navigator.pop(sheetContext);
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text('Team created'),
+                                    ),
+                                  );
+                                } catch (error) {
+                                  if (!sheetContext.mounted) return;
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text(
+                                        'Failed to create team: $error',
+                                      ),
+                                    ),
+                                  );
+                                  setSheetState(() => creating = false);
+                                }
+                              },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.greenAccent,
+                          padding: const EdgeInsets.all(16),
+                        ),
+                        child: creating
+                            ? const SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : const Text(
+                                'Create Team',
+                                style: TextStyle(color: Colors.black),
+                              ),
+                      ),
+                    ),
+                  ],
                 ),
-              ],
-            ),
-          ),
+              ),
+            );
+          },
         );
       },
     );
@@ -220,8 +260,8 @@ class MyRoomScreen extends StatelessWidget {
                           labelColor: Colors.white,
                           unselectedLabelColor: Colors.white54,
                           tabs: [
-                            Tab(text: 'Owned'),
-                            Tab(text: 'Joined'),
+                            Tab(text: 'Owned Teams'),
+                            Tab(text: 'Joined Teams'),
                           ],
                         ),
                       ),
@@ -230,11 +270,13 @@ class MyRoomScreen extends StatelessWidget {
                         child: TabBarView(
                           children: [
                             _TeamList(
-                              stream: TeamService.streamOwnedTeams(currentUid),
+                              emptyText: 'You don’t own any teams yet.',
+                              stream: TeamService.getOwnedTeams(currentUid),
                               currentUid: currentUid,
                             ),
                             _TeamList(
-                              stream: TeamService.streamJoinedTeams(currentUid),
+                              emptyText: 'You haven’t joined any teams yet.',
+                              stream: TeamService.getJoinedTeams(currentUid),
                               currentUid: currentUid,
                             ),
                           ],
@@ -255,8 +297,13 @@ class MyRoomScreen extends StatelessWidget {
 class _TeamList extends StatelessWidget {
   final Stream<List<TeamModel>> stream;
   final String currentUid;
+  final String emptyText;
 
-  const _TeamList({required this.stream, required this.currentUid});
+  const _TeamList({
+    required this.stream,
+    required this.currentUid,
+    required this.emptyText,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -267,22 +314,52 @@ class _TeamList extends StatelessWidget {
           return const Center(child: CircularProgressIndicator());
         }
 
-        final teams = snapshot.data ?? <TeamModel>[];
-        if (teams.isEmpty) {
+        if (snapshot.hasError) {
           return const Center(
             child: Text(
-              'No teams here yet.',
+              'Teams are unavailable right now.',
+              textAlign: TextAlign.center,
               style: TextStyle(color: Colors.white70),
             ),
           );
         }
 
+        final teamsRaw = snapshot.data ?? <TeamModel>[];
+
+        // Defensive de-dupe by team id (Firestore should not return duplicates,
+        // but this keeps UI stable).
+        final seen = <String>{};
+        final teams = <TeamModel>[];
+        for (final t in teamsRaw) {
+          if (seen.add(t.id)) teams.add(t);
+        }
+
+        if (teams.isEmpty) {
+          return Center(
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: const Color(0xff1A2233),
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Text(
+                emptyText,
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: Colors.white70),
+              ),
+            ),
+          );
+        }
+
         return ListView.separated(
+          padding: const EdgeInsets.only(bottom: 16),
           itemCount: teams.length,
           separatorBuilder: (_, _) => const SizedBox(height: 12),
           itemBuilder: (context, index) {
             final team = teams[index];
             final isOwner = team.ownerId == currentUid;
+
             return _TeamRoomCard(
               team: team,
               isOwner: isOwner,
@@ -341,7 +418,18 @@ class _TeamRoomCard extends StatelessWidget {
 
     if (confirmed != true) return;
 
-    await TeamService.deleteTeam(teamId: team.id);
+    try {
+      await TeamService.deleteTeam(teamId: team.id);
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Team deleted')));
+    } catch (error) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Failed to delete team: $error')));
+    }
   }
 
   @override

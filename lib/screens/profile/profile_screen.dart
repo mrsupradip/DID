@@ -42,152 +42,161 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final bottomPad = MediaQuery.of(context).padding.bottom;
+
     return Scaffold(
       backgroundColor: const Color(0xff101522),
+      resizeToAvoidBottomInset: true,
       body: FutureBuilder<ProfileData>(
         future: _profileFuture,
         builder: (context, snapshot) {
           final profile = snapshot.data ?? ProfileData.defaultData();
 
-          return SingleChildScrollView(
-            child: Column(
-              children: [
-                Stack(
-                  clipBehavior: Clip.none,
-                  children: [
-                    Container(
-                      height: 260,
-                      decoration: BoxDecoration(
-                        image:
-                            resolveImageProvider(profile.headerImagePath) ==
-                                null
-                            ? null
-                            : DecorationImage(
-                                image: resolveImageProvider(
-                                  profile.headerImagePath,
-                                )!,
-                                fit: BoxFit.cover,
-                              ),
-                        gradient: profile.headerImagePath.isEmpty
-                            ? const LinearGradient(
-                                colors: [Color(0xff34d399), Color(0xff0F172A)],
-                                begin: Alignment.topLeft,
-                                end: Alignment.bottomRight,
-                              )
-                            : null,
-                      ),
-                    ),
-                    Positioned(
-                      top: 50,
-                      left: 20,
-                      child: _roundIconButton(
-                        Icons.settings,
-                        onTap: () async {
-                          final changed = await Navigator.push<bool>(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => const SettingsScreen(),
-                            ),
-                          );
-                          if (changed == true) _reload();
-                        },
-                      ),
-                    ),
-                    Positioned(
-                      top: 50,
-                      right: 20,
-                      child: _roundIconButton(
-                        Icons.edit,
-                        onTap: () async {
-                          final changed = await Navigator.push<bool>(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => const EditProfileScreen(),
-                            ),
-                          );
-                          if (changed == true) _reload();
-                        },
-                      ),
-                    ),
-                    Positioned(
-                      bottom: -56,
-                      left: 0,
-                      right: 0,
-                      child: CircleAvatar(
-                        radius: 60,
-                        backgroundColor: Colors.greenAccent,
-                        child: CircleAvatar(
-                          radius: 56,
-                          backgroundColor: const Color(0xff111827),
-                          backgroundImage: resolveImageProvider(
-                            profile.profileImagePath,
-                          ),
-                          child: profile.profileImagePath.isEmpty
-                              ? const Icon(
-                                  Icons.person,
-                                  size: 55,
-                                  color: Colors.white,
+          return SafeArea(
+            child: SingleChildScrollView(
+              padding: EdgeInsets.only(bottom: bottomPad),
+              child: Column(
+                children: [
+                  Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      Container(
+                        height: 260,
+                        decoration: BoxDecoration(
+                          image:
+                              resolveImageProvider(profile.headerImagePath) ==
+                                  null
+                              ? null
+                              : DecorationImage(
+                                  image: resolveImageProvider(
+                                    profile.headerImagePath,
+                                  )!,
+                                  fit: BoxFit.cover,
+                                ),
+                          gradient: profile.headerImagePath.isEmpty
+                              ? const LinearGradient(
+                                  colors: [
+                                    Color(0xff34d399),
+                                    Color(0xff0F172A),
+                                  ],
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
                                 )
                               : null,
                         ),
                       ),
+                      Positioned(
+                        top: 50,
+                        left: 20,
+                        child: _roundIconButton(
+                          Icons.settings,
+                          onTap: () async {
+                            final changed = await Navigator.push<bool>(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => const SettingsScreen(),
+                              ),
+                            );
+                            if (changed == true) _reload();
+                          },
+                        ),
+                      ),
+                      Positioned(
+                        top: 50,
+                        right: 20,
+                        child: _roundIconButton(
+                          Icons.edit,
+                          onTap: () async {
+                            final changed = await Navigator.push<bool>(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => const EditProfileScreen(),
+                              ),
+                            );
+                            if (changed == true) _reload();
+                          },
+                        ),
+                      ),
+                      Positioned(
+                        bottom: -56,
+                        left: 0,
+                        right: 0,
+                        child: CircleAvatar(
+                          radius: 60,
+                          backgroundColor: Colors.greenAccent,
+                          child: CircleAvatar(
+                            radius: 56,
+                            backgroundColor: const Color(0xff111827),
+                            backgroundImage: resolveImageProvider(
+                              profile.profileImagePath,
+                            ),
+                            child: profile.profileImagePath.isEmpty
+                                ? const Icon(
+                                    Icons.person,
+                                    size: 55,
+                                    color: Colors.white,
+                                  )
+                                : null,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 70),
+                  Text(
+                    profile.displayName,
+                    style: GoogleFonts.poppins(
+                      color: Colors.white,
+                      fontSize: 28,
+                      fontWeight: FontWeight.bold,
                     ),
-                  ],
-                ),
-                const SizedBox(height: 70),
-                Text(
-                  profile.displayName,
-                  style: GoogleFonts.poppins(
-                    color: Colors.white,
-                    fontSize: 28,
-                    fontWeight: FontWeight.bold,
                   ),
-                ),
-                const SizedBox(height: 8),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 24),
-                  child: Text(
-                    profile.bio,
-                    textAlign: TextAlign.center,
-                    style: GoogleFonts.poppins(color: Colors.white70),
+                  const SizedBox(height: 8),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 24),
+                    child: Text(
+                      profile.bio,
+                      textAlign: TextAlign.center,
+                      style: GoogleFonts.poppins(color: Colors.white70),
+                    ),
                   ),
-                ),
-                const SizedBox(height: 12),
-                TextButton.icon(
-                  onPressed: () => _openUrl(profile.githubUrl),
-                  icon: const Icon(
-                    Icons.open_in_browser,
-                    color: Colors.greenAccent,
+                  const SizedBox(height: 12),
+                  TextButton.icon(
+                    onPressed: () => _openUrl(profile.githubUrl),
+                    icon: const Icon(
+                      Icons.open_in_browser,
+                      color: Colors.greenAccent,
+                    ),
+                    label: const Text(
+                      'Open GitHub',
+                      style: TextStyle(color: Colors.greenAccent),
+                    ),
                   ),
-                  label: const Text(
-                    'Open GitHub',
-                    style: TextStyle(color: Colors.greenAccent),
+                  const SizedBox(height: 20),
+                  Wrap(
+                    spacing: 10,
+                    runSpacing: 10,
+                    children: profile.skills
+                        .map((skill) => CustomChip(title: skill))
+                        .toList(),
                   ),
-                ),
-                const SizedBox(height: 20),
-                Wrap(
-                  spacing: 10,
-                  runSpacing: 10,
-                  children: profile.skills
-                      .map((skill) => CustomChip(title: skill))
-                      .toList(),
-                ),
-                const SizedBox(height: 30),
-                _sectionHeader('Projects'),
-                const SizedBox(height: 10),
-                ...profile.projects.map(
-                  (project) => _ProjectTile(
-                    title: project.title,
-                    url: project.url,
-                    onTap: () => _openUrl(project.url),
+                  const SizedBox(height: 30),
+                  _sectionHeader('Projects'),
+                  const SizedBox(height: 10),
+                  ...profile.projects.map(
+                    (project) => _ProjectTile(
+                      title: project.title,
+                      url: project.url,
+                      onTap: () => _openUrl(project.url),
+                    ),
                   ),
-                ),
-                const SizedBox(height: 24),
-                _sectionHeader('GitHub & Activity'),
-                const SizedBox(height: 10),
-                _statsCard(profile),
-                const SizedBox(height: 24),
-              ],
+                  const SizedBox(height: 24),
+                  _sectionHeader('GitHub & Activity'),
+                  const SizedBox(height: 10),
+                  _statsCard(profile),
+                  const SizedBox(height: 24),
+                ],
+              ),
             ),
           );
         },

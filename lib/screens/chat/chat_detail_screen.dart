@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../models/message_model.dart';
 import '../../services/chat_service.dart';
+import '../../services/social_service.dart';
 
 class ChatDetailScreen extends StatefulWidget {
   final ChatContact conversation;
@@ -15,6 +16,7 @@ class ChatDetailScreen extends StatefulWidget {
 class _ChatDetailScreenState extends State<ChatDetailScreen> {
   final TextEditingController messageController = TextEditingController();
   final ScrollController scrollController = ScrollController();
+  final SocialService _socialService = SocialService();
 
   ChatContact get conversation => widget.conversation;
 
@@ -29,12 +31,17 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     final text = messageController.text.trim();
     if (text.isEmpty) return;
 
-    setState(() {
-      ChatService.sendMessage(conversationId: conversation.id, message: text);
-      messageController.clear();
-    });
+    messageController.clear();
+    if (conversation.isTeamChat) {
+      setState(() {
+        ChatService.sendMessage(conversationId: conversation.id, message: text);
+      });
+    } else {
+      await _socialService.sendMessage(receiverUid: conversation.id, text: text);
+    }
 
     await Future<void>.delayed(const Duration(milliseconds: 50));
+    if (!mounted) return;
     if (scrollController.hasClients) {
       scrollController.animateTo(
         scrollController.position.maxScrollExtent,
@@ -46,8 +53,6 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final messages = conversation.messages;
-
     return Scaffold(
       backgroundColor: const Color(0xff101522),
       appBar: AppBar(
@@ -84,16 +89,28 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
       body: Column(
         children: [
           Expanded(
-            child: ListView.builder(
-              controller: scrollController,
-              padding: const EdgeInsets.all(16),
-              itemCount: messages.length,
-              itemBuilder: (context, index) {
-                final message = messages[index];
-                final isMe = message.senderId == 'me';
-                return _MessageBubble(message: message, isMe: isMe);
-              },
-            ),
+            child: conversation.isTeamChat
+                ? _MessageList(
+                    controller: scrollController,
+                    messages: conversation.messages,
+                    currentUid: 'me',
+                  )
+                : StreamBuilder<List<MessageModel>>(
+                    stream: _socialService.streamMessagesWith(conversation.id),
+                    builder: (context, snapshot) {
+                      final messages = snapshot.data ?? conversation.messages;
+                      if (snapshot.connectionState == ConnectionState.waiting &&
+                          messages.isEmpty) {
+                        return const Center(child: CircularProgressIndicator());
+                      }
+
+                      return _MessageList(
+                        controller: scrollController,
+                        messages: messages,
+                        currentUid: _socialService.currentUid ?? '',
+                      );
+                    },
+                  ),
           ),
           Container(
             padding: const EdgeInsets.fromLTRB(16, 10, 16, 16),
@@ -133,6 +150,32 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _MessageList extends StatelessWidget {
+  final ScrollController controller;
+  final List<MessageModel> messages;
+  final String currentUid;
+
+  const _MessageList({
+    required this.controller,
+    required this.messages,
+    required this.currentUid,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView.builder(
+      controller: controller,
+      padding: const EdgeInsets.all(16),
+      itemCount: messages.length,
+      itemBuilder: (context, index) {
+        final message = messages[index];
+        final isMe = message.senderId == currentUid;
+        return _MessageBubble(message: message, isMe: isMe);
+      },
     );
   }
 }

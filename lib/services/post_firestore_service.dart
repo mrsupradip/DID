@@ -66,6 +66,7 @@ class PostFirestoreService {
       'saves': <String>[],
       'shares': <String>[],
       'comments': <Map<String, dynamic>>[],
+      'commentUids': <String>[],
       'createdAt': FieldValue.serverTimestamp(),
     });
 

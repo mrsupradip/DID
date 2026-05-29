@@ -12,6 +12,7 @@ class TeamModel {
   final List<String> requiredSkills;
 
   final int members;
+  final List<String> memberIds;
 
   final String ownerId;
 
@@ -29,6 +30,7 @@ class TeamModel {
     required this.requiredSkills,
 
     required this.members,
+    required this.memberIds,
 
     required this.ownerId,
   });

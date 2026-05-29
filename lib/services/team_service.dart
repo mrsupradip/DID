@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../models/team_model.dart';
+import 'social_service.dart';
 
 class TeamService {
   static const int maxMembers = 5;
@@ -15,6 +16,16 @@ class TeamService {
   static TeamModel _fromDoc(QueryDocumentSnapshot<Map<String, dynamic>> doc) {
     final data = doc.data();
     final requiredSkillsRaw = data['requiredSkills'] as List<dynamic>?;
+
+    // Firestore sometimes stores numbers as int and sometimes as num.
+    final memberIds = _memberIdsFromData(data);
+    final membersRaw = data['members'];
+    final members = membersRaw is List
+        ? membersRaw.length
+        : (membersRaw is int
+              ? membersRaw
+              : (membersRaw is num ? membersRaw.toInt() : memberIds.length));
+
     return TeamModel(
       id: doc.id,
       teamCode: (data['teamCode'] ?? '').toString(),
@@ -26,7 +37,8 @@ class TeamService {
       requiredSkills: requiredSkillsRaw == null
           ? <String>[]
           : requiredSkillsRaw.map((e) => e.toString()).toList(),
-      members: (data['members'] as int?) ?? 1,
+      members: members,
+      memberIds: memberIds,
       ownerId: (data['ownerId'] ?? '').toString(),
     );
   }
@@ -38,20 +50,32 @@ class TeamService {
         .map((snapshot) => snapshot.docs.map(_fromDoc).toList());
   }
 
-  static Stream<List<TeamModel>> streamOwnedTeams(String ownerId) {
+  /// Owned teams where `ownerId == currentUserId`.
+  static Stream<List<TeamModel>> getOwnedTeams(String currentUserId) {
     return _teamsRef
-        .where('ownerId', isEqualTo: ownerId)
+        .where('ownerId', isEqualTo: currentUserId)
         .orderBy('createdAt', descending: true)
         .snapshots()
         .map((snapshot) => snapshot.docs.map(_fromDoc).toList());
   }
 
+  /// Joined teams where `memberIds` contains `currentUserId`.
+  static Stream<List<TeamModel>> getJoinedTeams(String currentUserId) {
+    return streamTeams().map(
+      (teams) => teams
+          .where((team) => team.ownerId != currentUserId)
+          .where((team) => team.memberIds.contains(currentUserId))
+          .toList(),
+    );
+  }
+
+  // Backwards compatibility for existing code.
+  static Stream<List<TeamModel>> streamOwnedTeams(String ownerId) {
+    return getOwnedTeams(ownerId);
+  }
+
   static Stream<List<TeamModel>> streamJoinedTeams(String userId) {
-    return _teamsRef
-        .where('memberIds', arrayContains: userId)
-        .orderBy('createdAt', descending: true)
-        .snapshots()
-        .map((snapshot) => snapshot.docs.map(_fromDoc).toList());
+    return getJoinedTeams(userId);
   }
 
   static List<TeamModel> search(List<TeamModel> teams, String query) {
@@ -76,25 +100,71 @@ class TeamService {
     required String userId,
   }) async {
     final ref = _teamsRef.doc(teamId);
+    String? joinedOwnerId;
+    String? joinedTeamTitle;
     await FirebaseFirestore.instance.runTransaction((txn) async {
       final snapshot = await txn.get(ref);
       if (!snapshot.exists) return;
 
       final data = snapshot.data() ?? <String, dynamic>{};
-      final members = (data['members'] as int?) ?? 1;
-      final memberIds = ((data['memberIds'] as List<dynamic>?) ?? <dynamic>[])
-          .map((e) => e.toString())
-          .toList();
+      final ownerId = (data['ownerId'] ?? '').toString();
+      final teamTitle = (data['title'] ?? 'your team').toString();
+      final membersRaw = data['members'];
+      final memberIds = _memberIdsFromData(data);
+      final members = membersRaw is List
+          ? membersRaw.length
+          : (membersRaw is int
+                ? membersRaw
+                : (membersRaw is num ? membersRaw.toInt() : memberIds.length));
 
       if (members >= maxMembers || memberIds.contains(userId)) {
         return;
       }
 
-      txn.update(ref, {
-        'members': members + 1,
-        'memberIds': FieldValue.arrayUnion([userId]),
-      });
+      if (membersRaw is List) {
+        txn.update(ref, {
+          'members': FieldValue.arrayUnion([userId]),
+          'memberIds': FieldValue.arrayUnion([userId]),
+        });
+      } else {
+        txn.update(ref, {
+          'members': members + 1,
+          'memberIds': FieldValue.arrayUnion([userId]),
+        });
+      }
+
+      if (ownerId.isNotEmpty && ownerId != userId) {
+        joinedOwnerId = ownerId;
+        joinedTeamTitle = teamTitle;
+      }
     });
+
+    if (joinedOwnerId != null) {
+      await SocialService().createNotification(
+        uid: joinedOwnerId!,
+        type: 'team_join',
+        title: 'Team member joined',
+        body: 'A developer joined ${joinedTeamTitle ?? 'your team'}',
+        actorUid: userId,
+        teamId: teamId,
+      );
+    }
+  }
+
+  static List<String> _memberIdsFromData(Map<String, dynamic> data) {
+    final ids = <String>{};
+
+    for (final field in const ['memberIds', 'members', 'joinedMembers']) {
+      final raw = data[field];
+      if (raw is List) {
+        ids.addAll(raw.map((e) => e.toString()));
+      }
+    }
+
+    final ownerId = (data['ownerId'] ?? '').toString();
+    if (ownerId.isNotEmpty) ids.add(ownerId);
+
+    return ids.toList();
   }
 
   static Future<void> createTeam({

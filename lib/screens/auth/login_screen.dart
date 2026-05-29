@@ -6,6 +6,7 @@ import '../../routes/app_routes.dart';
 import '../../services/permission_service.dart';
 import 'signup_screen.dart';
 import '../../services/session_service.dart';
+import '../../services/firestore_service.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -33,6 +34,56 @@ class _LoginScreenState extends State<LoginScreen> {
     final email = await SessionService.getLastEmail();
     if (!mounted || email == null || email.isEmpty) return;
     emailController.text = email;
+  }
+
+  Future<void> _handleOauthLogin({
+    required String providerName,
+    required Future<dynamic> Function() signIn,
+  }) async {
+    if (loading) return;
+    FocusScope.of(context).unfocus();
+    final messenger = ScaffoldMessenger.of(context);
+
+    setState(() => loading = true);
+    try {
+      final user = await signIn();
+      if (!mounted) return;
+
+      if (user == null) {
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text(
+              authService.lastError ?? '$providerName sign-in failed.',
+            ),
+          ),
+        );
+        return;
+      }
+
+      await FirestoreService().updateUser(
+        uid: user.uid,
+        data: {
+          'uid': user.uid,
+          'name': user.displayName ?? 'Developer',
+          'email': user.email ?? '',
+          'createdAt': DateTime.now(),
+        },
+      );
+      await SessionService.updateLastActive();
+      if ((user.email ?? '').isNotEmpty) {
+        await SessionService.saveLastEmail(user.email!);
+      }
+      await PermissionService.requestOnboardingPermissions();
+      if (!mounted) return;
+      Navigator.of(context).pushReplacementNamed(AppRoutes.biometricGate);
+    } catch (error) {
+      if (!mounted) return;
+      messenger.showSnackBar(
+        SnackBar(content: Text('$providerName sign-in failed: $error')),
+      );
+    } finally {
+      if (mounted) setState(() => loading = false);
+    }
   }
 
   @override
@@ -118,6 +169,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         return;
                       }
 
+                      if (!mounted) return;
                       setState(() {
                         loading = true;
                       });
@@ -128,6 +180,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         password: password,
                       );
 
+                      if (!mounted) return;
                       setState(() {
                         loading = false;
                       });
@@ -136,9 +189,9 @@ class _LoginScreenState extends State<LoginScreen> {
                         await SessionService.updateLastActive();
                         await SessionService.saveLastEmail(email);
                         await PermissionService.requestOnboardingPermissions();
-                        if (!context.mounted) return;
+                        if (!mounted) return;
                         Navigator.of(
-                          context,
+                          this.context,
                         ).pushReplacementNamed(AppRoutes.biometricGate);
                       } else {
                         final err =
@@ -173,6 +226,42 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
 
                 const SizedBox(height: 40),
+                Text(
+                  'SIGN IN WITH',
+                  style: GoogleFonts.poppins(
+                    color: Colors.grey,
+                    letterSpacing: 1,
+                  ),
+                ),
+                const SizedBox(height: 18),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    _OAuthButton(
+                      icon: Icons.g_mobiledata,
+                      label: 'Google',
+                      onPressed: loading
+                          ? null
+                          : () => _handleOauthLogin(
+                              providerName: 'Google',
+                              signIn: authService.signInWithGoogle,
+                            ),
+                    ),
+                    const SizedBox(width: 14),
+                    _OAuthButton(
+                      icon: Icons.code,
+                      label: 'GitHub',
+                      onPressed: loading
+                          ? null
+                          : () => _handleOauthLogin(
+                              providerName: 'GitHub',
+                              signIn: authService.signInWithGitHub,
+                            ),
+                    ),
+                  ],
+                ),
+
+                const SizedBox(height: 24),
 
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
@@ -248,6 +337,35 @@ class _LoginScreenState extends State<LoginScreen> {
           border: InputBorder.none,
 
           contentPadding: const EdgeInsets.all(25),
+        ),
+      ),
+    );
+  }
+}
+
+class _OAuthButton extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final VoidCallback? onPressed;
+
+  const _OAuthButton({
+    required this.icon,
+    required this.label,
+    required this.onPressed,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 112,
+      height: 44,
+      child: OutlinedButton.icon(
+        onPressed: onPressed,
+        icon: Icon(icon),
+        label: Text(label),
+        style: OutlinedButton.styleFrom(
+          foregroundColor: Colors.white,
+          side: const BorderSide(color: Colors.white24),
         ),
       ),
     );

@@ -1,3 +1,4 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
@@ -36,54 +37,76 @@ class _LoginScreenState extends State<LoginScreen> {
     emailController.text = email;
   }
 
-  Future<void> _handleOauthLogin({
-    required String providerName,
-    required Future<dynamic> Function() signIn,
-  }) async {
-    if (loading) return;
-    FocusScope.of(context).unfocus();
-    final messenger = ScaffoldMessenger.of(context);
+  Future<bool> _requireVerifiedEmail(User user, {required String email}) async {
+    await user.sendEmailVerification();
+    if (!mounted) return false;
 
-    setState(() => loading = true);
-    try {
-      final user = await signIn();
-      if (!mounted) return;
+    var checking = false;
+    var status = 'We sent a verification link to $email.';
 
-      if (user == null) {
-        messenger.showSnackBar(
-          SnackBar(
-            content: Text(
-              authService.lastError ?? '$providerName sign-in failed.',
-            ),
-          ),
+    final verified = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            Future<void> checkNow() async {
+              if (checking) return;
+              setDialogState(() => checking = true);
+              try {
+                await user.reload();
+                final refreshedUser = FirebaseAuth.instance.currentUser;
+                if (refreshedUser?.emailVerified == true) {
+                  if (dialogContext.mounted) {
+                    Navigator.pop(dialogContext, true);
+                  }
+                  return;
+                }
+
+                setDialogState(
+                  () => status =
+                      'Email not verified yet. Open the link and try again.',
+                );
+              } finally {
+                if (dialogContext.mounted) {
+                  setDialogState(() => checking = false);
+                }
+              }
+            }
+
+            return AlertDialog(
+              backgroundColor: const Color(0xff101522),
+              title: const Text('Verify your email'),
+              content: Text(
+                status,
+                style: const TextStyle(color: Colors.white70),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: checking
+                      ? null
+                      : () async {
+                          await user.sendEmailVerification();
+                          if (dialogContext.mounted) {
+                            setDialogState(
+                              () => status = 'Verification email sent again.',
+                            );
+                          }
+                        },
+                  child: const Text('Resend'),
+                ),
+                ElevatedButton(
+                  onPressed: checking ? null : checkNow,
+                  child: Text(checking ? 'Checking...' : 'I verified it'),
+                ),
+              ],
+            );
+          },
         );
-        return;
-      }
+      },
+    );
 
-      await FirestoreService().updateUser(
-        uid: user.uid,
-        data: {
-          'uid': user.uid,
-          'name': user.displayName ?? 'Developer',
-          'email': user.email ?? '',
-          'createdAt': DateTime.now(),
-        },
-      );
-      await SessionService.updateLastActive();
-      if ((user.email ?? '').isNotEmpty) {
-        await SessionService.saveLastEmail(user.email!);
-      }
-      await PermissionService.requestOnboardingPermissions();
-      if (!mounted) return;
-      Navigator.of(context).pushReplacementNamed(AppRoutes.biometricGate);
-    } catch (error) {
-      if (!mounted) return;
-      messenger.showSnackBar(
-        SnackBar(content: Text('$providerName sign-in failed: $error')),
-      );
-    } finally {
-      if (mounted) setState(() => loading = false);
-    }
+    return verified == true;
   }
 
   @override
@@ -186,6 +209,34 @@ class _LoginScreenState extends State<LoginScreen> {
                       });
 
                       if (user != null) {
+                        if (!user.emailVerified) {
+                          final verified = await _requireVerifiedEmail(
+                            user,
+                            email: email,
+                          );
+                          if (!verified) {
+                            await authService.logout();
+                            if (!mounted) return;
+                            setState(() => loading = false);
+                            messenger.showSnackBar(
+                              const SnackBar(
+                                content: Text(
+                                  'Please verify your email before logging in.',
+                                ),
+                              ),
+                            );
+                            return;
+                          }
+                        }
+
+                        await FirestoreService().updateUser(
+                          uid: user.uid,
+                          data: {
+                            'uid': user.uid,
+                            'email': email,
+                            'lastLoginAt': DateTime.now(),
+                          },
+                        );
                         await SessionService.updateLastActive();
                         await SessionService.saveLastEmail(email);
                         await PermissionService.requestOnboardingPermissions();
@@ -223,42 +274,6 @@ class _LoginScreenState extends State<LoginScreen> {
                             ),
                           ),
                   ),
-                ),
-
-                const SizedBox(height: 40),
-                Text(
-                  'SIGN IN WITH',
-                  style: GoogleFonts.poppins(
-                    color: Colors.grey,
-                    letterSpacing: 1,
-                  ),
-                ),
-                const SizedBox(height: 18),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    _OAuthButton(
-                      icon: Icons.g_mobiledata,
-                      label: 'Google',
-                      onPressed: loading
-                          ? null
-                          : () => _handleOauthLogin(
-                              providerName: 'Google',
-                              signIn: authService.signInWithGoogle,
-                            ),
-                    ),
-                    const SizedBox(width: 14),
-                    _OAuthButton(
-                      icon: Icons.code,
-                      label: 'GitHub',
-                      onPressed: loading
-                          ? null
-                          : () => _handleOauthLogin(
-                              providerName: 'GitHub',
-                              signIn: authService.signInWithGitHub,
-                            ),
-                    ),
-                  ],
                 ),
 
                 const SizedBox(height: 24),
@@ -337,35 +352,6 @@ class _LoginScreenState extends State<LoginScreen> {
           border: InputBorder.none,
 
           contentPadding: const EdgeInsets.all(25),
-        ),
-      ),
-    );
-  }
-}
-
-class _OAuthButton extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final VoidCallback? onPressed;
-
-  const _OAuthButton({
-    required this.icon,
-    required this.label,
-    required this.onPressed,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: 112,
-      height: 44,
-      child: OutlinedButton.icon(
-        onPressed: onPressed,
-        icon: Icon(icon),
-        label: Text(label),
-        style: OutlinedButton.styleFrom(
-          foregroundColor: Colors.white,
-          side: const BorderSide(color: Colors.white24),
         ),
       ),
     );

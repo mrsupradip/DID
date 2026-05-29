@@ -1,9 +1,11 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 
 class AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   String? lastError;
+  static bool _googleSignInInitialized = false;
 
   Future<User?> signUp({
     required String email,
@@ -45,16 +47,36 @@ class AuthService {
   Future<User?> signInWithGoogle() async {
     try {
       lastError = null;
-      final googleProvider = GoogleAuthProvider();
-      googleProvider.addScope('email');
-      googleProvider.addScope('profile');
+      if (kIsWeb) {
+        final googleProvider = GoogleAuthProvider();
+        googleProvider.addScope('email');
+        googleProvider.addScope('profile');
+        final userCredential = await _auth.signInWithPopup(googleProvider);
+        return userCredential.user;
+      }
 
-      final userCredential = kIsWeb
-          ? await _auth.signInWithPopup(googleProvider)
-          : await _auth.signInWithProvider(googleProvider);
+      if (!_googleSignInInitialized) {
+        await GoogleSignIn.instance.initialize();
+        _googleSignInInitialized = true;
+      }
+
+      final googleUser = await GoogleSignIn.instance.authenticate(
+        scopeHint: const ['email', 'profile'],
+      );
+      final googleAuth = googleUser.authentication;
+      final credential = GoogleAuthProvider.credential(
+        idToken: googleAuth.idToken,
+      );
+
+      final userCredential = await _auth.signInWithCredential(credential);
       return userCredential.user;
     } on FirebaseAuthException catch (e) {
       lastError = e.message;
+      return null;
+    } on GoogleSignInException catch (e) {
+      lastError = e.code == GoogleSignInExceptionCode.canceled
+          ? 'Google sign-in was cancelled.'
+          : e.toString();
       return null;
     } catch (e) {
       lastError = e.toString();

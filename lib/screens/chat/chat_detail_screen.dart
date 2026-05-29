@@ -37,7 +37,10 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
         ChatService.sendMessage(conversationId: conversation.id, message: text);
       });
     } else {
-      await _socialService.sendMessage(receiverUid: conversation.id, text: text);
+      await _socialService.sendMessage(
+        receiverUid: conversation.id,
+        text: text,
+      );
     }
 
     await Future<void>.delayed(const Duration(milliseconds: 50));
@@ -53,6 +56,10 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final mediaQuery = MediaQuery.of(context);
+    final bottomInset =
+        mediaQuery.viewPadding.bottom + mediaQuery.viewInsets.bottom;
+
     return Scaffold(
       backgroundColor: const Color(0xff101522),
       appBar: AppBar(
@@ -86,69 +93,77 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
           ],
         ),
       ),
-      body: Column(
-        children: [
-          Expanded(
-            child: conversation.isTeamChat
-                ? _MessageList(
-                    controller: scrollController,
-                    messages: conversation.messages,
-                    currentUid: 'me',
-                  )
-                : StreamBuilder<List<MessageModel>>(
-                    stream: _socialService.streamMessagesWith(conversation.id),
-                    builder: (context, snapshot) {
-                      final messages = snapshot.data ?? conversation.messages;
-                      if (snapshot.connectionState == ConnectionState.waiting &&
-                          messages.isEmpty) {
-                        return const Center(child: CircularProgressIndicator());
-                      }
-
-                      return _MessageList(
-                        controller: scrollController,
-                        messages: messages,
-                        currentUid: _socialService.currentUid ?? '',
-                      );
-                    },
-                  ),
-          ),
-          Container(
-            padding: const EdgeInsets.fromLTRB(16, 10, 16, 16),
-            decoration: const BoxDecoration(
-              color: Color(0xff0B0F1A),
-              border: Border(top: BorderSide(color: Color(0x22FFFFFF))),
-            ),
-            child: Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: messageController,
-                    style: const TextStyle(color: Colors.white),
-                    decoration: InputDecoration(
-                      hintText: 'Message ${conversation.name}',
-                      hintStyle: const TextStyle(color: Colors.grey),
-                      filled: true,
-                      fillColor: const Color(0xff1A2233),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(16),
-                        borderSide: BorderSide.none,
+      body: SafeArea(
+        top: false,
+        child: Column(
+          children: [
+            Expanded(
+              child: conversation.isTeamChat
+                  ? _MessageList(
+                      controller: scrollController,
+                      messages: conversation.messages,
+                      currentUid: 'me',
+                    )
+                  : StreamBuilder<List<MessageModel>>(
+                      stream: _socialService.streamMessagesWith(
+                        conversation.id,
                       ),
+                      builder: (context, snapshot) {
+                        final messages = snapshot.data ?? conversation.messages;
+                        if (snapshot.connectionState ==
+                                ConnectionState.waiting &&
+                            messages.isEmpty) {
+                          return const Center(
+                            child: CircularProgressIndicator(),
+                          );
+                        }
+
+                        return _MessageList(
+                          controller: scrollController,
+                          messages: messages,
+                          currentUid: _socialService.currentUid ?? '',
+                        );
+                      },
                     ),
-                    onSubmitted: (_) => _sendMessage(),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                CircleAvatar(
-                  backgroundColor: Colors.greenAccent,
-                  child: IconButton(
-                    onPressed: _sendMessage,
-                    icon: const Icon(Icons.send, color: Colors.black),
-                  ),
-                ),
-              ],
             ),
-          ),
-        ],
+            Container(
+              padding: EdgeInsets.fromLTRB(16, 10, 16, 16 + bottomInset),
+              decoration: const BoxDecoration(
+                color: Color(0xff0B0F1A),
+                border: Border(top: BorderSide(color: Color(0x22FFFFFF))),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: messageController,
+                      style: const TextStyle(color: Colors.white),
+                      decoration: InputDecoration(
+                        hintText: 'Message ${conversation.name}',
+                        hintStyle: const TextStyle(color: Colors.grey),
+                        filled: true,
+                        fillColor: const Color(0xff1A2233),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(16),
+                          borderSide: BorderSide.none,
+                        ),
+                      ),
+                      onSubmitted: (_) => _sendMessage(),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  CircleAvatar(
+                    backgroundColor: Colors.greenAccent,
+                    child: IconButton(
+                      onPressed: _sendMessage,
+                      icon: const Icon(Icons.send, color: Colors.black),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

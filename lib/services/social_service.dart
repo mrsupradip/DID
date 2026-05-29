@@ -40,12 +40,56 @@ class SocialService {
 
   Stream<List<DidUser>> streamUsers() {
     final uid = currentUid;
-    return _firestore.collection('users').snapshots().map((snapshot) {
+    return _firestore.collection('users').snapshots().asyncMap((
+      snapshot,
+    ) async {
+      final excludedIds = <String>{};
+      if (uid != null) excludedIds.add(uid);
+
+      if (uid != null) {
+        final friendships = await _firestore
+            .collection('friendships')
+            .where('memberIds', arrayContains: uid)
+            .get();
+        for (final doc in friendships.docs) {
+          final memberIds =
+              (doc.data()['memberIds'] as List<dynamic>? ?? <dynamic>[])
+                  .map((e) => e.toString())
+                  .toList();
+          excludedIds.addAll(memberIds.where((memberId) => memberId != uid));
+
+          final friendA = memberIds.isNotEmpty ? memberIds.first : '';
+          final friendB = memberIds.length > 1 ? memberIds[1] : '';
+          excludedIds.add(friendA);
+          excludedIds.add(friendB);
+        }
+
+        final outgoingRequests = await _firestore
+            .collection('friend_requests')
+            .where('fromUid', isEqualTo: uid)
+            .where('status', isEqualTo: 'pending')
+            .get();
+        for (final doc in outgoingRequests.docs) {
+          excludedIds.add((doc.data()['toUid'] ?? '').toString());
+        }
+
+        final incomingRequests = await _firestore
+            .collection('friend_requests')
+            .where('toUid', isEqualTo: uid)
+            .where('status', isEqualTo: 'pending')
+            .get();
+        for (final doc in incomingRequests.docs) {
+          excludedIds.add((doc.data()['fromUid'] ?? '').toString());
+        }
+      }
+
       final users = snapshot.docs
           .map(DidUser.fromDoc)
-          .where((user) => user.uid != uid)
+          .where((user) => !excludedIds.contains(user.uid))
           .toList();
-      users.sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+      users.sort(
+        (a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()),
+      );
       return users;
     });
   }
@@ -105,7 +149,9 @@ class SocialService {
               ChatContact(
                 id: user.uid,
                 name: user.name,
-                role: user.github.isEmpty ? 'D!D friend' : 'GitHub: ${user.github}',
+                role: user.github.isEmpty
+                    ? 'D!D friend'
+                    : 'GitHub: ${user.github}',
                 avatar: _initials(user.name),
                 isTeamChat: false,
                 messages: latest == null ? <MessageModel>[] : [latest],
@@ -113,7 +159,9 @@ class SocialService {
             );
           }
 
-          contacts.sort((a, b) => b.lastMessageTime.compareTo(a.lastMessageTime));
+          contacts.sort(
+            (a, b) => b.lastMessageTime.compareTo(a.lastMessageTime),
+          );
           return contacts;
         });
   }
@@ -122,27 +170,25 @@ class SocialService {
     final uid = currentUid;
     if (uid == null) return const Stream.empty();
 
-    return _conversationRef(uid, otherUid)
-        .collection('messages')
-        .orderBy('createdAt')
-        .snapshots()
-        .map((snapshot) {
-          return snapshot.docs.map((doc) {
-            final data = doc.data();
-            final createdAt = data['createdAt'];
-            return MessageModel(
-              senderId: (data['senderId'] ?? '').toString(),
-              receiverId: (data['receiverId'] ?? '').toString(),
-              message: (data['text'] ?? '').toString(),
-              time: createdAt is Timestamp
-                  ? createdAt.toDate()
-                  : DateTime.now(),
-            );
-          }).toList();
-        });
+    return _conversationRef(
+      uid,
+      otherUid,
+    ).collection('messages').orderBy('createdAt').snapshots().map((snapshot) {
+      return snapshot.docs.map((doc) {
+        final data = doc.data();
+        final createdAt = data['createdAt'];
+        return MessageModel(
+          senderId: (data['senderId'] ?? '').toString(),
+          receiverId: (data['receiverId'] ?? '').toString(),
+          message: (data['text'] ?? '').toString(),
+          time: createdAt is Timestamp ? createdAt.toDate() : DateTime.now(),
+        );
+      }).toList();
+    });
   }
 
-  Stream<List<QueryDocumentSnapshot<Map<String, dynamic>>>> streamNotifications() {
+  Stream<List<QueryDocumentSnapshot<Map<String, dynamic>>>>
+  streamNotifications() {
     final uid = currentUid;
     if (uid == null) return const Stream.empty();
 
@@ -225,10 +271,14 @@ class SocialService {
 
     final friendshipId = _pairId(fromUid, toUid);
     final batch = _firestore.batch();
-    batch.set(_firestore.collection('friendships').doc(friendshipId), {
-      'memberIds': [fromUid, toUid],
-      'createdAt': FieldValue.serverTimestamp(),
-    }, SetOptions(merge: true));
+    batch.set(
+      _firestore.collection('friendships').doc(friendshipId),
+      {
+        'memberIds': [fromUid, toUid],
+        'createdAt': FieldValue.serverTimestamp(),
+      },
+      SetOptions(merge: true),
+    );
     batch.update(requestRef, {'status': 'accepted'});
     await batch.commit();
 

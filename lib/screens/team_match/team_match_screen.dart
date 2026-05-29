@@ -19,6 +19,7 @@ class _TeamMatchScreenState extends State<TeamMatchScreen> {
   String query = '';
   final Set<String> _joiningTeamIds = {};
   final Set<String> _requestingUserIds = {};
+  final Set<String> _hiddenUserIds = {};
 
   @override
   Widget build(BuildContext context) {
@@ -70,10 +71,7 @@ class _TeamMatchScreenState extends State<TeamMatchScreen> {
                 const SizedBox(height: 18),
                 Expanded(
                   child: TabBarView(
-                    children: [
-                      _buildTeamsTab(),
-                      _buildPeopleTab(),
-                    ],
+                    children: [_buildTeamsTab(), _buildPeopleTab()],
                   ),
                 ),
               ],
@@ -168,7 +166,9 @@ class _TeamMatchScreenState extends State<TeamMatchScreen> {
                       } catch (error) {
                         if (!mounted) return;
                         messenger.showSnackBar(
-                          SnackBar(content: Text('Failed to join team: $error')),
+                          SnackBar(
+                            content: Text('Failed to join team: $error'),
+                          ),
                         );
                       } finally {
                         if (mounted) {
@@ -217,7 +217,28 @@ class _TeamMatchScreenState extends State<TeamMatchScreen> {
                         ),
                         TextButton(
                           onPressed: () async {
-                            await _socialService.acceptFriendRequest(request.id);
+                            final messenger = ScaffoldMessenger.of(context);
+                            try {
+                              final fromUid = (request.data()['fromUid'] ?? '')
+                                  .toString();
+                              await _socialService.acceptFriendRequest(
+                                request.id,
+                              );
+                              if (mounted && fromUid.isNotEmpty) {
+                                setState(() => _hiddenUserIds.add(fromUid));
+                              }
+                              if (!context.mounted) return;
+                              messenger.showSnackBar(
+                                const SnackBar(
+                                  content: Text('Friend request accepted'),
+                                ),
+                              );
+                            } catch (error) {
+                              if (!context.mounted) return;
+                              messenger.showSnackBar(
+                                SnackBar(content: Text(error.toString())),
+                              );
+                            }
                           },
                           child: const Text('Accept'),
                         ),
@@ -241,6 +262,7 @@ class _TeamMatchScreenState extends State<TeamMatchScreen> {
               final normalized = query.trim().toLowerCase();
               final users = (snapshot.data ?? <DidUser>[]).where((user) {
                 if (normalized.isEmpty) return true;
+                if (_hiddenUserIds.contains(user.uid)) return false;
                 return user.name.toLowerCase().contains(normalized) ||
                     user.uid.toLowerCase().contains(normalized) ||
                     user.github.toLowerCase().contains(normalized);
@@ -273,6 +295,9 @@ class _TeamMatchScreenState extends State<TeamMatchScreen> {
                               final message = await _socialService
                                   .sendFriendRequest(user);
                               if (!mounted) return;
+                              if (message == 'Friend request sent') {
+                                setState(() => _hiddenUserIds.add(user.uid));
+                              }
                               messenger.showSnackBar(
                                 SnackBar(content: Text(message)),
                               );

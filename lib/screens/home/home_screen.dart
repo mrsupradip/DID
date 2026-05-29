@@ -873,6 +873,7 @@ class AppNotificationsScreen extends StatelessWidget {
                 final title = (data['title'] ?? 'Notification').toString();
                 final body = (data['body'] ?? '').toString();
                 final requestId = (data['requestId'] ?? '').toString();
+                final read = data['read'] == true;
 
                 return Container(
                   padding: const EdgeInsets.all(16),
@@ -883,10 +884,7 @@ class AppNotificationsScreen extends StatelessWidget {
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Icon(
-                        _notificationIcon(type),
-                        color: Colors.greenAccent,
-                      ),
+                      Icon(_notificationIcon(type), color: Colors.greenAccent),
                       const SizedBox(width: 12),
                       Expanded(
                         child: Column(
@@ -909,17 +907,50 @@ class AppNotificationsScreen extends StatelessWidget {
                             if (type == 'friend_request' &&
                                 requestId.isNotEmpty) ...[
                               const SizedBox(height: 10),
-                              ElevatedButton(
-                                onPressed: () async {
-                                  await service.acceptFriendRequest(requestId);
-                                  await doc.reference.update({'read': true});
-                                },
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: Colors.greenAccent,
-                                  foregroundColor: Colors.black,
+                              if (read)
+                                const Text(
+                                  'Accepted',
+                                  style: TextStyle(
+                                    color: Colors.greenAccent,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                )
+                              else
+                                ElevatedButton(
+                                  onPressed: () async {
+                                    final messenger = ScaffoldMessenger.of(
+                                      context,
+                                    );
+                                    try {
+                                      await service.acceptFriendRequest(
+                                        requestId,
+                                      );
+                                      await doc.reference.update({
+                                        'read': true,
+                                      });
+                                      if (!context.mounted) return;
+                                      messenger.showSnackBar(
+                                        const SnackBar(
+                                          content: Text(
+                                            'Friend request accepted',
+                                          ),
+                                        ),
+                                      );
+                                    } catch (error) {
+                                      if (!context.mounted) return;
+                                      messenger.showSnackBar(
+                                        SnackBar(
+                                          content: Text(error.toString()),
+                                        ),
+                                      );
+                                    }
+                                  },
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.greenAccent,
+                                    foregroundColor: Colors.black,
+                                  ),
+                                  child: const Text('Accept request'),
                                 ),
-                                child: const Text('Accept request'),
-                              ),
                             ],
                           ],
                         ),

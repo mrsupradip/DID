@@ -102,6 +102,7 @@ class _ChatScreenState extends State<ChatScreen> {
   @override
   Widget build(BuildContext context) {
     final normalized = query.trim().toLowerCase();
+    final bottomInset = MediaQuery.of(context).padding.bottom;
 
     final friends = ChatService.friends.where((conversation) {
       if (normalized.isEmpty) return true;
@@ -112,11 +113,14 @@ class _ChatScreenState extends State<ChatScreen> {
 
     return Scaffold(
       backgroundColor: const Color(0xff101522),
-      floatingActionButton: FloatingActionButton(
-        heroTag: 'chat-add-fab',
-        backgroundColor: Colors.greenAccent,
-        onPressed: _showAddFriendDialog,
-        child: const Icon(Icons.person_add_alt_1, color: Colors.black),
+      floatingActionButton: Padding(
+        padding: EdgeInsets.only(bottom: bottomInset + 72),
+        child: FloatingActionButton(
+          heroTag: 'chat-add-fab',
+          backgroundColor: Colors.greenAccent,
+          onPressed: _showAddFriendDialog,
+          child: const Icon(Icons.person_add_alt_1, color: Colors.black),
+        ),
       ),
       body: SafeArea(
         child: Padding(
@@ -190,6 +194,7 @@ class _ChatScreenState extends State<ChatScreen> {
                     }
 
                     return ListView(
+                      padding: const EdgeInsets.only(bottom: 96),
                       children: [
                         const Text(
                           'Friends',

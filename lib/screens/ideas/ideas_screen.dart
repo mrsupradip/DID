@@ -17,182 +17,233 @@ class _IdeasScreenState extends State<IdeasScreen> {
   Future<void> _createQuizPost() async {
     if (_creatingQuizPost) return;
 
-    final titleController = TextEditingController();
-    final subtitleController = TextEditingController();
-    final tagsController = TextEditingController();
+    final questionController = TextEditingController();
+    final optionControllers = <TextEditingController>[
+      TextEditingController(),
+      TextEditingController(),
+    ];
 
-    final data = await showDialog<Map<String, dynamic>>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('Create quiz post'),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: titleController,
-                decoration: const InputDecoration(hintText: 'Title'),
-              ),
-              const SizedBox(height: 10),
-              TextField(
-                controller: subtitleController,
-                maxLines: 3,
-                decoration: const InputDecoration(hintText: 'Description'),
-              ),
-              const SizedBox(height: 10),
-              TextField(
-                controller: tagsController,
-                decoration: const InputDecoration(
-                  hintText: 'Tags (comma separated)',
-                ),
-              ),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(dialogContext, {
-                'title': titleController.text.trim(),
-                'subtitle': subtitleController.text.trim(),
-                'tags': tagsController.text
-                    .split(',')
-                    .map((t) => t.trim())
-                    .where((t) => t.isNotEmpty)
-                    .toList(),
-              });
-            },
-            child: const Text('Post'),
-          ),
-        ],
-      ),
-    );
-
-    titleController.dispose();
-    subtitleController.dispose();
-    tagsController.dispose();
-
-    if (!mounted || data == null) return;
-    final title = (data['title'] ?? '').toString();
-    final subtitle = (data['subtitle'] ?? '').toString();
-    final tags = (data['tags'] as List<dynamic>? ?? <dynamic>[])
-        .map((e) => e.toString())
-        .toList();
-
-    if (title.isEmpty || subtitle.isEmpty || tags.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Fill title, description, and tags')),
-      );
-      return;
-    }
-
-    final uid = FirebaseAuth.instance.currentUser?.uid;
-    if (uid == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Login required to create quiz post')),
-      );
-      return;
-    }
-
-    if (mounted) {
-      setState(() {
-        _creatingQuizPost = true;
-      });
-    }
-
+    setState(() => _creatingQuizPost = true);
     try {
-      await _quizPostsRef.add({
-        'uid': uid,
-        'title': title,
-        'subtitle': subtitle,
-        'tags': tags,
-        'votes': <String>[],
-        'likes': <String>[],
-        'dislikes': <String>[],
-        'comments': <Map<String, dynamic>>[],
-        'createdAt': FieldValue.serverTimestamp(),
-      });
-      if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Quiz post created')));
-    } catch (error) {
-      debugPrint('Create quiz post failed: $error');
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to create quiz post: $error')),
+      await showModalBottomSheet<void>(
+        context: context,
+        isScrollControlled: true,
+        useSafeArea: true,
+        backgroundColor: const Color(0xff101522),
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        builder: (sheetContext) {
+          var posting = false;
+          return StatefulBuilder(
+            builder: (context, setSheetState) {
+              Future<void> addOption() async {
+                setSheetState(() {
+                  optionControllers.add(TextEditingController());
+                });
+              }
+
+              void removeOption(int index) {
+                if (optionControllers.length <= 2) return;
+                final controller = optionControllers.removeAt(index);
+                controller.dispose();
+                setSheetState(() {});
+              }
+
+              Future<void> submitPoll() async {
+                if (posting) return;
+
+                final question = questionController.text.trim();
+                final options = optionControllers
+                    .map((controller) => controller.text.trim())
+                    .where((option) => option.isNotEmpty)
+                    .toList();
+
+                if (question.isEmpty || options.length < 2) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Add a question and at least two options'),
+                    ),
+                  );
+                  return;
+                }
+
+                final uid = FirebaseAuth.instance.currentUser?.uid;
+                if (uid == null) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Login required to create a poll'),
+                    ),
+                  );
+                  return;
+                }
+
+                setSheetState(() => posting = true);
+                try {
+                  await _quizPostsRef.add({
+                    'uid': uid,
+                    'question': question,
+                    'options': options
+                        .asMap()
+                        .entries
+                        .map(
+                          (entry) => {
+                            'id':
+                                'option_${DateTime.now().microsecondsSinceEpoch}_${entry.key}',
+                            'text': entry.value,
+                            'votes': 0,
+                          },
+                        )
+                        .toList(),
+                    'votedBy': <String>[],
+                    'createdAt': FieldValue.serverTimestamp(),
+                  });
+
+                  if (!sheetContext.mounted) return;
+                  Navigator.pop(sheetContext);
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Poll posted')),
+                    );
+                  }
+                } catch (error) {
+                  debugPrint('Create poll failed: $error');
+                  if (!sheetContext.mounted) return;
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Failed to post poll: $error')),
+                  );
+                } finally {
+                  if (sheetContext.mounted) {
+                    setSheetState(() => posting = false);
+                  }
+                }
+              }
+
+              return Padding(
+                padding: EdgeInsets.only(
+                  left: 18,
+                  right: 18,
+                  top: 18,
+                  bottom: MediaQuery.of(sheetContext).viewInsets.bottom + 18,
+                ),
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Create poll',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 22,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                      TextField(
+                        controller: questionController,
+                        style: const TextStyle(color: Colors.white),
+                        decoration: InputDecoration(
+                          hintText: 'Ask a question',
+                          hintStyle: const TextStyle(color: Colors.white54),
+                          filled: true,
+                          fillColor: const Color(0xff1A2233),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(16),
+                            borderSide: BorderSide.none,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                      ...optionControllers.asMap().entries.map((entry) {
+                        final index = entry.key;
+                        final controller = entry.value;
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 10),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: TextField(
+                                  controller: controller,
+                                  style: const TextStyle(color: Colors.white),
+                                  decoration: InputDecoration(
+                                    hintText: 'Option ${index + 1}',
+                                    hintStyle: const TextStyle(
+                                      color: Colors.white54,
+                                    ),
+                                    filled: true,
+                                    fillColor: const Color(0xff1A2233),
+                                    border: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(16),
+                                      borderSide: BorderSide.none,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              if (optionControllers.length > 2) ...[
+                                const SizedBox(width: 8),
+                                IconButton(
+                                  onPressed: posting
+                                      ? null
+                                      : () => removeOption(index),
+                                  icon: const Icon(
+                                    Icons.remove_circle_outline,
+                                    color: Colors.white54,
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+                        );
+                      }),
+                      TextButton.icon(
+                        onPressed: posting ? null : addOption,
+                        icon: const Icon(Icons.add, color: Colors.greenAccent),
+                        label: const Text('Add option'),
+                      ),
+                      const SizedBox(height: 12),
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton(
+                          onPressed: posting ? null : submitPoll,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.greenAccent,
+                            foregroundColor: Colors.black,
+                            padding: const EdgeInsets.all(16),
+                          ),
+                          child: posting
+                              ? const SizedBox(
+                                  width: 18,
+                                  height: 18,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
+                                )
+                              : const Text('Post poll'),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          );
+        },
       );
     } finally {
+      for (final controller in optionControllers) {
+        controller.dispose();
+      }
+      questionController.dispose();
       if (mounted) {
-        setState(() {
-          _creatingQuizPost = false;
-        });
+        setState(() => _creatingQuizPost = false);
       }
     }
   }
 
-  Future<void> _addComment(DocumentReference<Map<String, dynamic>> ref) async {
-    final controller = TextEditingController();
-    final text = await showDialog<String>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('Comment'),
-        content: TextField(
-          controller: controller,
-          decoration: const InputDecoration(hintText: 'Write your comment'),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () =>
-                Navigator.pop(dialogContext, controller.text.trim()),
-            child: const Text('Post'),
-          ),
-        ],
-      ),
-    );
-
-    controller.dispose();
-
-    if (!mounted || text == null || text.isEmpty) return;
-    final uid = FirebaseAuth.instance.currentUser?.uid;
-    if (uid == null) return;
-
-    await FirebaseFirestore.instance.runTransaction((txn) async {
-      final snapshot = await txn.get(ref);
-      if (!snapshot.exists) return;
-      final data = snapshot.data() ?? <String, dynamic>{};
-      final commentsRaw = data['comments'] as List<dynamic>?;
-      final comments = commentsRaw == null
-          ? <Map<String, dynamic>>[]
-          : commentsRaw
-                .whereType<Map>()
-                .map((entry) => entry.map((k, v) => MapEntry('$k', v)))
-                .toList();
-
-      comments.add({
-        'uid': uid,
-        'text': text,
-        'createdAt': DateTime.now().toUtc().toIso8601String(),
-      });
-
-      txn.update(ref, {
-        'comments': comments,
-        'commentUids': FieldValue.arrayUnion([uid]),
-      });
-    });
-  }
-
-  Future<void> _toggleArrayField({
+  Future<void> _voteOnPoll({
     required DocumentReference<Map<String, dynamic>> ref,
-    required String field,
+    required String optionId,
   }) async {
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) return;
@@ -201,49 +252,53 @@ class _IdeasScreenState extends State<IdeasScreen> {
       final snapshot = await txn.get(ref);
       if (!snapshot.exists) return;
 
-      final latest = snapshot.data() ?? <String, dynamic>{};
-      final existing = (latest[field] as List<dynamic>? ?? <dynamic>[])
-          .map((e) => e.toString())
+      final data = snapshot.data() ?? <String, dynamic>{};
+      final votedBy = (data['votedBy'] as List<dynamic>? ?? <dynamic>[])
+          .map((entry) => entry.toString())
+          .toList();
+      if (votedBy.contains(uid)) return;
+
+      final options = (data['options'] as List<dynamic>? ?? <dynamic>[])
+          .whereType<Map>()
+          .map((entry) {
+            final map = entry.map((key, value) => MapEntry('$key', value));
+            return _PollOption.fromMap(map);
+          })
           .toList();
 
-      if (field == 'likes' || field == 'dislikes') {
-        final opposite = field == 'likes' ? 'dislikes' : 'likes';
-        if (existing.contains(uid)) {
-          txn.update(ref, {
-            field: FieldValue.arrayRemove([uid]),
-          });
-        } else {
-          txn.update(ref, {
-            field: FieldValue.arrayUnion([uid]),
-            opposite: FieldValue.arrayRemove([uid]),
-          });
-        }
-        return;
-      }
+      final updatedOptions = options.map((option) {
+        if (option.id != optionId) return option;
+        return option.copyWith(votes: option.votes + 1);
+      }).toList();
 
       txn.update(ref, {
-        field: existing.contains(uid)
-            ? FieldValue.arrayRemove([uid])
-            : FieldValue.arrayUnion([uid]),
+        'options': updatedOptions.map((option) => option.toMap()).toList(),
+        'votedBy': FieldValue.arrayUnion([uid]),
+        'updatedAt': FieldValue.serverTimestamp(),
       });
     });
   }
 
   @override
   Widget build(BuildContext context) {
+    final bottomInset = MediaQuery.of(context).padding.bottom;
+
     return Scaffold(
       backgroundColor: const Color(0xff101522),
-      floatingActionButton: FloatingActionButton(
-        heroTag: 'ideas-add-fab',
-        onPressed: _creatingQuizPost ? null : _createQuizPost,
-        backgroundColor: Colors.greenAccent,
-        child: _creatingQuizPost
-            ? const SizedBox(
-                width: 18,
-                height: 18,
-                child: CircularProgressIndicator(strokeWidth: 2),
-              )
-            : const Icon(Icons.add, color: Colors.black),
+      floatingActionButton: Padding(
+        padding: EdgeInsets.only(bottom: bottomInset + 72),
+        child: FloatingActionButton(
+          heroTag: 'ideas-add-fab',
+          onPressed: _creatingQuizPost ? null : _createQuizPost,
+          backgroundColor: Colors.greenAccent,
+          child: _creatingQuizPost
+              ? const SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Icon(Icons.add, color: Colors.black),
+        ),
       ),
       body: SafeArea(
         child: Padding(
@@ -279,52 +334,54 @@ class _IdeasScreenState extends State<IdeasScreen> {
                     if (docs.isEmpty) {
                       return const Center(
                         child: Text(
-                          'No quiz posts yet. Create the first one.',
+                          'No polls yet. Create the first one.',
                           style: TextStyle(color: Colors.white70),
                         ),
                       );
                     }
 
                     return ListView.separated(
+                      padding: const EdgeInsets.only(bottom: 96),
                       itemCount: docs.length,
                       separatorBuilder: (_, _) => const SizedBox(height: 14),
                       itemBuilder: (context, index) {
                         final doc = docs[index];
                         final data = doc.data();
 
-                        final tags = (data['tags'] as List<dynamic>? ?? [])
-                            .map((e) => e.toString())
-                            .toList();
-                        final votes =
-                            (data['votes'] as List<dynamic>? ?? []).length;
-                        final likes =
-                            (data['likes'] as List<dynamic>? ?? []).length;
-                        final dislikes =
-                            (data['dislikes'] as List<dynamic>? ?? []).length;
-                        final comments =
-                            (data['comments'] as List<dynamic>? ?? []).length;
+                        final options =
+                            (data['options'] as List<dynamic>? ?? <dynamic>[])
+                                .whereType<Map>()
+                                .map((entry) {
+                                  final map = entry.map(
+                                    (key, value) => MapEntry('$key', value),
+                                  );
+                                  return _PollOption.fromMap(map);
+                                })
+                                .toList();
+                        final votedBy =
+                            (data['votedBy'] as List<dynamic>? ?? <dynamic>[])
+                                .map((entry) => entry.toString())
+                                .toList();
+                        final currentUid =
+                            FirebaseAuth.instance.currentUser?.uid;
+                        final hasVoted =
+                            currentUid != null && votedBy.contains(currentUid);
+                        final totalVotes = options.fold<int>(
+                          0,
+                          (total, option) => total + option.votes,
+                        );
 
-                        return _IdeaCard(
-                          title: (data['title'] ?? '').toString(),
-                          subtitle: (data['subtitle'] ?? '').toString(),
-                          tags: tags,
-                          votes: votes,
-                          likes: likes,
-                          dislikes: dislikes,
-                          comments: comments,
-                          onVote: () => _toggleArrayField(
-                            ref: doc.reference,
-                            field: 'votes',
-                          ),
-                          onLike: () => _toggleArrayField(
-                            ref: doc.reference,
-                            field: 'likes',
-                          ),
-                          onDislike: () => _toggleArrayField(
-                            ref: doc.reference,
-                            field: 'dislikes',
-                          ),
-                          onComment: () => _addComment(doc.reference),
+                        return _PollCard(
+                          question: (data['question'] ?? '').toString(),
+                          options: options,
+                          totalVotes: totalVotes,
+                          hasVoted: hasVoted,
+                          onVote: hasVoted
+                              ? null
+                              : (optionId) => _voteOnPoll(
+                                  ref: doc.reference,
+                                  optionId: optionId,
+                                ),
                         );
                       },
                     );
@@ -339,31 +396,19 @@ class _IdeasScreenState extends State<IdeasScreen> {
   }
 }
 
-class _IdeaCard extends StatelessWidget {
-  final String title;
-  final String subtitle;
-  final List<String> tags;
-  final int votes;
-  final int likes;
-  final int dislikes;
-  final int comments;
-  final VoidCallback onVote;
-  final VoidCallback onLike;
-  final VoidCallback onDislike;
-  final VoidCallback onComment;
+class _PollCard extends StatelessWidget {
+  final String question;
+  final List<_PollOption> options;
+  final int totalVotes;
+  final bool hasVoted;
+  final Future<void> Function(String optionId)? onVote;
 
-  const _IdeaCard({
-    required this.title,
-    required this.subtitle,
-    required this.tags,
-    required this.votes,
-    required this.likes,
-    required this.dislikes,
-    required this.comments,
+  const _PollCard({
+    required this.question,
+    required this.options,
+    required this.totalVotes,
+    required this.hasVoted,
     required this.onVote,
-    required this.onLike,
-    required this.onDislike,
-    required this.onComment,
   });
 
   @override
@@ -377,43 +422,42 @@ class _IdeaCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: tags
-                .map(
-                  (tag) => Chip(
-                    label: Text(tag),
-                    backgroundColor: Colors.greenAccent.withValues(alpha: 0.12),
-                    labelStyle: const TextStyle(color: Colors.greenAccent),
-                  ),
-                )
-                .toList(),
+          const Text(
+            'Poll',
+            style: TextStyle(
+              color: Colors.greenAccent,
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 1,
+            ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 10),
           Text(
-            title,
+            question,
             style: const TextStyle(
               color: Colors.white,
               fontSize: 18,
               fontWeight: FontWeight.bold,
             ),
           ),
-          const SizedBox(height: 8),
-          Text(
-            subtitle,
-            style: const TextStyle(color: Colors.white70, height: 1.4),
-          ),
           const SizedBox(height: 14),
-          Wrap(
-            spacing: 10,
-            runSpacing: 10,
-            children: [
-              _ActionPill(label: 'Vote $votes', onTap: onVote),
-              _ActionPill(label: 'Like $likes', onTap: onLike),
-              _ActionPill(label: 'Dislike $dislikes', onTap: onDislike),
-              _ActionPill(label: 'Comment $comments', onTap: onComment),
-            ],
+          ...options.map(
+            (option) => Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: _PollOptionTile(
+                option: option,
+                totalVotes: totalVotes,
+                voted: hasVoted,
+                onTap: onVote == null ? null : () => onVote!(option.id),
+              ),
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            totalVotes == 0
+                ? 'Tap an option to vote'
+                : '$totalVotes vote${totalVotes == 1 ? '' : 's'}',
+            style: const TextStyle(color: Colors.white54, fontSize: 12),
           ),
         ],
       ),
@@ -421,26 +465,102 @@ class _IdeaCard extends StatelessWidget {
   }
 }
 
-class _ActionPill extends StatelessWidget {
-  final String label;
-  final VoidCallback onTap;
+class _PollOption {
+  final String id;
+  final String text;
+  final int votes;
 
-  const _ActionPill({required this.label, required this.onTap});
+  const _PollOption({
+    required this.id,
+    required this.text,
+    required this.votes,
+  });
+
+  factory _PollOption.fromMap(Map<String, dynamic> data) {
+    return _PollOption(
+      id: (data['id'] ?? '').toString(),
+      text: (data['text'] ?? '').toString(),
+      votes: (data['votes'] is num) ? (data['votes'] as num).toInt() : 0,
+    );
+  }
+
+  _PollOption copyWith({String? id, String? text, int? votes}) {
+    return _PollOption(
+      id: id ?? this.id,
+      text: text ?? this.text,
+      votes: votes ?? this.votes,
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {'id': id, 'text': text, 'votes': votes};
+  }
+}
+
+class _PollOptionTile extends StatelessWidget {
+  final _PollOption option;
+  final int totalVotes;
+  final bool voted;
+  final VoidCallback? onTap;
+
+  const _PollOptionTile({
+    required this.option,
+    required this.totalVotes,
+    required this.voted,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
+    final progress = totalVotes == 0 ? 0.0 : option.votes / totalVotes;
+
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(999),
+      borderRadius: BorderRadius.circular(16),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.06),
-          borderRadius: BorderRadius.circular(999),
+          color: const Color(0xff141B2B),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: voted
+                ? Colors.greenAccent.withValues(alpha: 0.5)
+                : Colors.transparent,
+          ),
         ),
-        child: Text(
-          label,
-          style: const TextStyle(color: Colors.white70, fontSize: 12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    option.text,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+                Text(
+                  '${option.votes}',
+                  style: const TextStyle(color: Colors.white70),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(999),
+              child: LinearProgressIndicator(
+                minHeight: 8,
+                value: progress,
+                backgroundColor: Colors.white.withValues(alpha: 0.08),
+                valueColor: const AlwaysStoppedAnimation<Color>(
+                  Colors.greenAccent,
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );

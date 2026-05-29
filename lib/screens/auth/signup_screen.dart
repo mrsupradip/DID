@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../auth/auth_service.dart';
@@ -145,62 +146,76 @@ class _SignupScreenState extends State<SignupScreen> {
     );
   }
 
-  Future<void> _handleOauth({
-    required Future<dynamic> Function() signIn,
+  Future<bool> _requireVerifiedEmail(User user, {required String email}) async {
+    await user.sendEmailVerification();
+    if (!mounted) return false;
 
-    required String authProviderName,
-  }) async {
-    FocusScope.of(context).unfocus();
+    var checking = false;
+    var status = 'We sent a verification link to $email.';
 
-    if (loading) return;
-    setState(() => loading = true);
+    final verified = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            Future<void> checkNow() async {
+              if (checking) return;
+              setDialogState(() => checking = true);
+              try {
+                await user.reload();
+                final refreshedUser = FirebaseAuth.instance.currentUser;
+                if (refreshedUser?.emailVerified == true) {
+                  if (dialogContext.mounted) {
+                    Navigator.pop(dialogContext, true);
+                  }
+                  return;
+                }
 
-    try {
-      final user = await signIn();
-      if (!mounted) return;
+                setDialogState(
+                  () => status =
+                      'Email not verified yet. Open the link and try again.',
+                );
+              } finally {
+                if (dialogContext.mounted) {
+                  setDialogState(() => checking = false);
+                }
+              }
+            }
 
-      if (user == null) {
-        final err =
-            authService.lastError ?? '$authProviderName sign-in failed.';
+            return AlertDialog(
+              backgroundColor: const Color(0xff101522),
+              title: const Text('Verify your email'),
+              content: Text(
+                status,
+                style: const TextStyle(color: Colors.white70),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: checking
+                      ? null
+                      : () async {
+                          await user.sendEmailVerification();
+                          if (dialogContext.mounted) {
+                            setDialogState(
+                              () => status = 'Verification email sent again.',
+                            );
+                          }
+                        },
+                  child: const Text('Resend'),
+                ),
+                ElevatedButton(
+                  onPressed: checking ? null : checkNow,
+                  child: Text(checking ? 'Checking...' : 'I verified it'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
 
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(err)));
-
-        return;
-      }
-
-      final name = user.displayName ?? 'Developer';
-      final email = user.email ?? '';
-
-      UserService.updateCurrentUser(
-        id: user.uid,
-        name: name,
-        email: email,
-        bio: '',
-        github: '',
-        skills: const [],
-        profileImage: '',
-      );
-
-      await _ensureUserDocExists(uid: user.uid, name: name, email: email);
-      if (!mounted) return;
-
-      await SessionService.updateLastActive();
-      if (!mounted) return;
-
-      await PermissionService.requestOnboardingPermissions();
-      if (!mounted) return;
-
-      await Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => const ProfileSetupScreen()),
-      );
-    } finally {
-      if (mounted) {
-        setState(() => loading = false);
-      }
-    }
+    return verified == true;
   }
 
   Widget buildField({
@@ -350,14 +365,42 @@ class _SignupScreenState extends State<SignupScreen> {
                       setState(() => loading = false);
 
                       if (user != null) {
+                        final verified = await _requireVerifiedEmail(
+                          user,
+                          email: email,
+                        );
+                        if (!verified) {
+                          await authService.logout();
+                          if (!mounted) return;
+                          messenger.showSnackBar(
+                            const SnackBar(
+                              content: Text(
+                                'Please verify your email before continuing.',
+                              ),
+                            ),
+                          );
+                          return;
+                        }
+
+                        final resolvedName =
+                            (user.displayName ?? name).trim().isEmpty
+                            ? name
+                            : (user.displayName ?? name).trim();
+
                         UserService.updateCurrentUser(
                           id: user.uid,
-                          name: name,
+                          name: resolvedName,
                           email: email,
                           bio: '',
                           github: '',
                           skills: const [],
                           profileImage: '',
+                        );
+
+                        await _ensureUserDocExists(
+                          uid: user.uid,
+                          name: resolvedName,
+                          email: email,
                         );
 
                         await SessionService.updateLastActive();
@@ -397,74 +440,8 @@ class _SignupScreenState extends State<SignupScreen> {
                   ),
                 ),
                 const SizedBox(height: 50),
-                Text(
-                  'SIGN IN WITH',
-                  style: GoogleFonts.poppins(
-                    color: Colors.grey,
-                    letterSpacing: 1,
-                  ),
-                ),
-                const SizedBox(height: 30),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    _SocialButton(
-                      icon: Icons.g_mobiledata,
-                      label: 'Google',
-                      onPressed: loading
-                          ? null
-                          : () => _handleOauth(
-                              authProviderName: 'Google',
-                              signIn: authService.signInWithGoogle,
-                            ),
-                    ),
-                    const SizedBox(width: 18),
-                    _SocialButton(
-                      icon: Icons.code,
-                      label: 'GitHub',
-                      onPressed: loading
-                          ? null
-                          : () => _handleOauth(
-                              authProviderName: 'GitHub',
-                              signIn: authService.signInWithGitHub,
-                            ),
-                    ),
-                  ],
-                ),
               ],
             ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _SocialButton extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final VoidCallback? onPressed;
-
-  const _SocialButton({
-    required this.icon,
-    required this.label,
-    required this.onPressed,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: 72,
-      height: 72,
-      child: ElevatedButton.icon(
-        onPressed: onPressed,
-        icon: Icon(icon, size: 34),
-        label: Text(label, style: const TextStyle(fontSize: 10)),
-        style: ElevatedButton.styleFrom(
-          backgroundColor: Colors.white10,
-          foregroundColor: Colors.white70,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
           ),
         ),
       ),
